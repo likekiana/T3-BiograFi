@@ -1,0 +1,399 @@
+/* src/styles/pages/Dashboard.css */
+.dashboard {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-main {
+  margin-top: 60px; /* Header height */
+  flex: 1;
+  padding: 24px;
+  min-height: calc(100vh - 60px);
+}
+
+/* 用户信息表单 */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profile-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.profile-form input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+  background-color: #ffffff;
+}
+
+.profile-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.profile-form input.readonly-input {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.profile-form input::placeholder {
+  color: #9ca3af;
+}
+
+/* 内容区域通用样式 */
+.content-section {
+  background: white;
+  border-radius: 12px;
+  border: 2px solid #d1d5db;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.content-section h2 {
+  margin: 0 0 20px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 40px;
+  color: #6b7280;
+}
+
+.empty-state h3 {
+  margin-bottom: 12px;
+  color: #374151;
+  font-size: 20px;
+}
+
+.empty-state p {
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.empty-state .action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  color: #6b7280;
+}
+
+.loading-state .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+/* 错误状态 */
+.error-state {
+  text-align: center;
+  padding: 60px 40px;
+  color: #ef4444;
+}
+
+.error-state h3 {
+  margin-bottom: 12px;
+  color: #dc2626;
+}
+
+.error-state p {
+  margin-bottom: 20px;
+}
+
+/* 网格布局 */
+.grid-layout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* 卡片悬停效果 */
+.card-hover {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card .stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-card .stat-change {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.stat-change.positive {
+  color: #10b981;
+}
+
+.stat-change.negative {
+  color: #ef4444;
+}
+
+/* 最近活动 */
+.recent-activity {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-title {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 2px;
+}
+
+.activity-time {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* src/styles/pages/Dashboard.css */
+.logout-confirm-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.logout-confirm-content p {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.profile-form .form-group {
+  margin-bottom: 15px;
+}
+
+.profile-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.profile-form input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.profile-form .readonly-input {
+  background-color: #f5f5f5;
+  color: #666;
+}
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .dashboard-main {
+    padding: 20px;
+  }
+  
+  .grid-layout {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 16px;
+  }
+  
+  .content-section {
+    padding: 20px;
+    border-width: 1px;
+  }
+  
+  .content-section h2 {
+    font-size: 20px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .grid-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .empty-state .action-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-main {
+    padding: 12px;
+  }
+  
+  .content-section {
+    padding: 16px;
+    border-radius: 8px;
+  }
+  
+  .empty-state {
+    padding: 40px 20px;
+  }
+  
+  .loading-state,
+  .error-state {
+    padding: 40px 20px;
+  }
+}
+
+/* 动画 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .dashboard {
+    background-color: #111827;
+  }
+  
+  .dashboard-main {
+    background-color: #111827;
+  }
+  
+  .content-section {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .content-section h2 {
+    color: #f9fafb;
+  }
+  
+  .empty-state,
+  .loading-state,
+  .error-state {
+    color: #d1d5db;
+  }
+  
+  .empty-state h3,
+  .error-state h3 {
+    color: #f9fafb;
+  }
+  
+  .stat-card,
+  .recent-activity {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .stat-card .stat-value {
+    color: #f9fafb;
+  }
+  
+  .activity-item {
+    background-color: #374151;
+    border-color: #4b5563;
+  }
+  
+  .activity-title {
+    color: #f9fafb;
+  }
+}

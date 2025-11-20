@@ -1,0 +1,283 @@
+/* src/styles/components/ProjectList.css */
+.project-list-container {
+  border: 2px solid #d1d5db;
+  border-radius: 12px;
+  padding: 24px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  --control-height: 40px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  width: 200px;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin: 0;
+  color: #111827;
+}
+
+.create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: var(--control-height);
+  background-color: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.create-btn:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.create-btn:active {
+  transform: translateY(0);
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.project-card {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.1s, box-shadow 0.2s;
+  border: 1px solid #e5e7eb;
+}
+
+.project-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  border-color: #d1d5db;
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.project-name {
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0;
+  color: #111827;
+}
+
+.project-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-height);
+}
+
+.project-detail {
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 400;
+  max-width: 40ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-date {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.project-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  height: var(--control-height);
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  background-color: #ffffff;
+  transition: background-color 0.2s, transform 0.1s;
+  font-size: 14px;
+  color: #374151;
+  text-decoration: none;
+}
+
+.action-btn:hover {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  background-color: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.delete-btn:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 40px;
+  color: #6b7280;
+  font-size: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 2px dashed #d1d5db;
+}
+
+.empty-state h3 {
+  margin-bottom: 12px;
+  color: #374151;
+  font-size: 20px;
+}
+
+.empty-state p {
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.empty-state ul {
+  text-align: left;
+  margin: 20px auto;
+  max-width: 300px;
+}
+
+.empty-state li {
+  margin-bottom: 8px;
+  color: #6b7280;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .project-list-container {
+    padding: 16px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .project-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .project-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .project-title-row {
+    height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .create-btn,
+  .action-btn {
+    height: auto;
+    padding: 8px 12px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .search-input {
+    width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .search-box {
+    width: 100%;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
+  
+  .empty-state {
+    padding: 40px 20px;
+  }
+}
