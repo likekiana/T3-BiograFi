@@ -137,6 +137,34 @@ export const useDocuments = (projectId = null) => {
     }
   }, []);
 
+  // 关系标注方法
+  const addRelationAnnotation = useCallback(async (documentId, relation) => {
+    try {
+      return await documentService.addRelationAnnotation(documentId, relation);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
+  const deleteRelationAnnotation = useCallback(async (documentId, relationId) => {
+    try {
+      return await documentService.deleteRelationAnnotation(documentId, relationId);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
+  const getRelationAnnotations = useCallback(async (documentId) => {
+    try {
+      return await documentService.getRelationAnnotations(documentId);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
 return {
     documents,
     loading,
@@ -151,6 +179,9 @@ return {
     addEntityAnnotation,
     deleteEntityAnnotation,
     getEntityAnnotations,
+    addRelationAnnotation,
+    deleteRelationAnnotation,
+    getRelationAnnotations,
     refresh: loadDocuments
   };
 };

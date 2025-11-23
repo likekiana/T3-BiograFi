@@ -23,12 +23,19 @@
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
   cursor: pointer;
   color: #374151;
   transition: all 0.2s;
   font-size: 14px;
+}
+
+.toolbar-btn i,
+.toolbar-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .toolbar-btn:hover {

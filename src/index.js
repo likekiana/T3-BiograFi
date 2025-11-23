@@ -1,8 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import feather from 'feather-icons';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+
+if (typeof window !== 'undefined') {
+  window.feather = feather;
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

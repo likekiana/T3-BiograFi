@@ -47,6 +47,31 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.selected-text-info {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.selected-text-info label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.selected-text-preview {
+  padding: 8px 12px;
+  background-color: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  color: #1e40af;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
+  word-break: break-all;
+}
+
 .control-buttons {
   display: flex;
   gap: 8px;

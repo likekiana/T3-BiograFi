@@ -1,6 +1,47 @@
 import api from './api';
 import { generateUUID, getCurrentTimestamp, readFileAsText } from '../utils';
 
+const getTextFromContent = (content = '', start, end) => {
+  if (typeof start !== 'number' || typeof end !== 'number' || !content) {
+    return '';
+  }
+  const safeStart = Math.max(0, Math.min(start, end));
+  const safeEnd = Math.max(start, end);
+  return content.slice(safeStart, safeEnd);
+};
+
+const normalizeEntity = (annotation, content = '') => {
+  const start = Math.max(0, Math.min(annotation.start, annotation.end));
+  const end = Math.max(annotation.start, annotation.end);
+
+  if (end <= start) throw new Error('标注范围无效');
+
+  return {
+    start,
+    end,
+    label: annotation.label || '实体',
+    text: annotation.text || getTextFromContent(content, start, end)
+  };
+};
+
+const normalizeRelationEntity = (entity, content = '') => {
+  if (!entity) {
+    throw new Error('缺少关联实体');
+  }
+
+  return {
+    start: typeof entity.start === 'number' ? entity.start : 0,
+    end: typeof entity.end === 'number' ? entity.end : (typeof entity.start === 'number' ? entity.start : 0),
+    label: entity.label || '实体',
+    text: entity.text || getTextFromContent(content, entity.start, entity.end)
+  };
+};
+
+const isSameEntity = (entityA, entityB) => {
+  if (!entityA || !entityB) return false;
+  return entityA.start === entityB.start && entityA.end === entityB.end && entityA.label === entityB.label;
+};
+
 export const documentService = {
   /**
    * 获取文档列表
@@ -128,46 +169,115 @@ export const documentService = {
   },
 
   // 实体标注方法
-  async addEntityAnnotation(documentId, annotation) {
+  async addEntityAnnotation(documentId, annotation, existingAnnotations = null) {
     const doc = await this.getDocumentById(documentId);
     if (!doc) throw new Error('文档未找到');
 
-    const start = Math.max(0, Math.min(annotation.start, annotation.end));
-    const end = Math.max(annotation.start, annotation.end);
-    
-    if (end <= start) throw new Error('标注范围无效');
+    const normalized = normalizeEntity(annotation, doc.content || '');
+    const entityAnnotations = Array.isArray(existingAnnotations)
+      ? existingAnnotations
+      : (Array.isArray(doc.entityAnnotations) ? doc.entityAnnotations : []);
 
-    const normalized = {
-      start,
-      end,
-      label: annotation.label || '实体'
-    };
+    const updated = [...entityAnnotations, normalized];
 
-    const entityAnnotations = Array.isArray(doc.entityAnnotations) ? doc.entityAnnotations : [];
-    entityAnnotations.push(normalized);
-
-    return this.updateDocument(documentId, { entityAnnotations });
+    return this.updateDocument(documentId, { entityAnnotations: updated });
   },
 
-  async deleteEntityAnnotation(documentId, index) {
+  async deleteEntityAnnotation(documentId, index, existingAnnotations = null) {
     const doc = await this.getDocumentById(documentId);
-    if (!doc || !Array.isArray(doc.entityAnnotations)) {
-      throw new Error('文档或标注未找到');
+    if (!doc) {
+      throw new Error('文档未找到');
     }
 
-    if (index < 0 || index >= doc.entityAnnotations.length) {
+    const entityAnnotations = Array.isArray(existingAnnotations)
+      ? [...existingAnnotations]
+      : (Array.isArray(doc.entityAnnotations) ? [...doc.entityAnnotations] : []);
+
+    if (index < 0 || index >= entityAnnotations.length) {
       throw new Error('标注索引无效');
     }
 
-    const entityAnnotations = [...doc.entityAnnotations];
+    const removedEntity = entityAnnotations[index];
     entityAnnotations.splice(index, 1);
 
-    return this.updateDocument(documentId, { entityAnnotations });
+    // 同步删除关联的关系标注
+    const relations = Array.isArray(doc.relationAnnotations) ? doc.relationAnnotations : [];
+    const filteredRelations = relations.filter((relation) => {
+      return !isSameEntity(relation.entity1, removedEntity) && !isSameEntity(relation.entity2, removedEntity);
+    });
+
+    return this.updateDocument(documentId, {
+      entityAnnotations,
+      relationAnnotations: filteredRelations
+    });
   },
 
   async getEntityAnnotations(documentId) {
     const doc = await this.getDocumentById(documentId);
-    return (doc && Array.isArray(doc.entityAnnotations)) ? doc.entityAnnotations : [];
+    if (!doc || !Array.isArray(doc.entityAnnotations)) return [];
+
+    return doc.entityAnnotations.map((annotation) => ({
+      ...annotation,
+      text: annotation.text || getTextFromContent(doc.content || '', annotation.start, annotation.end)
+    }));
+  },
+
+  async addRelationAnnotation(documentId, relation, existingRelations = null) {
+    const doc = await this.getDocumentById(documentId);
+    if (!doc) throw new Error('文档未找到');
+
+    const { entity1, entity2, relationName } = relation;
+
+    if (!relationName || !relationName.trim()) {
+      throw new Error('关系名称不能为空');
+    }
+
+    if (!entity1 || !entity2) {
+      throw new Error('请选择两个实体');
+    }
+
+    if (isSameEntity(entity1, entity2)) {
+      throw new Error('请不要选择相同的实体');
+    }
+
+    const normalizedRelation = {
+      id: relation.id || generateUUID(),
+      relationName: relationName.trim(),
+      entity1: normalizeRelationEntity(entity1, doc.content || ''),
+      entity2: normalizeRelationEntity(entity2, doc.content || '')
+    };
+
+    const relationAnnotations = Array.isArray(existingRelations)
+      ? existingRelations
+      : (Array.isArray(doc.relationAnnotations) ? doc.relationAnnotations : []);
+
+    return this.updateDocument(documentId, {
+      relationAnnotations: [...relationAnnotations, normalizedRelation]
+    });
+  },
+
+  async deleteRelationAnnotation(documentId, relationId, existingRelations = null) {
+    const doc = await this.getDocumentById(documentId);
+    if (!doc) throw new Error('文档未找到');
+
+    const relationAnnotations = Array.isArray(existingRelations)
+      ? existingRelations
+      : (Array.isArray(doc.relationAnnotations) ? doc.relationAnnotations : []);
+
+    const filtered = relationAnnotations.filter((relation) => relation.id !== relationId);
+
+    return this.updateDocument(documentId, { relationAnnotations: filtered });
+  },
+
+  async getRelationAnnotations(documentId) {
+    const doc = await this.getDocumentById(documentId);
+    if (!doc || !Array.isArray(doc.relationAnnotations)) return [];
+    return doc.relationAnnotations.map((relation) => ({
+      ...relation,
+      relationName: relation.relationName || '',
+      entity1: normalizeRelationEntity(relation.entity1 || {}, doc.content || ''),
+      entity2: normalizeRelationEntity(relation.entity2 || {}, doc.content || '')
+    }));
   },
 
   // 本地存储方法
@@ -193,8 +303,18 @@ export const documentService = {
   },
 
   async getDocumentById(documentId) {
-    const documents = await this.getDocumentsFromLocal();
-    return documents.find(d => d.id === documentId);
+    try {
+      const documents = await this.getDocuments();
+      const found = documents.find(d => d.id === documentId);
+      if (found) {
+        return found;
+      }
+    } catch (error) {
+      console.warn('远程获取文档失败，尝试读取本地数据:', error.message);
+    }
+
+    const localDocuments = await this.getDocumentsFromLocal();
+    return localDocuments.find(d => d.id === documentId);
   },
 
   async createDocumentLocal(documentData) {
