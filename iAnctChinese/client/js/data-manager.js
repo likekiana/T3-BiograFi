@@ -35,42 +35,82 @@ class DataManager {
     }
     
     // 初始化数据（从云端或本地加载）
-    async initializeData() {
-        if (this.cloudSyncEnabled && this.currentUser) {
-            try {
-                await this.loadFromCloud();
-            } catch (error) {
-                console.error('从云端加载失败，使用本地数据:', error);
-                this.projects = this.loadProjectsFromLocal();
-                this.documents = this.loadDocumentsFromLocal();
-            }
-        } else {
+// 初始化数据（从云端或本地加载）- 修复版本
+async initializeData() {
+    console.log('开始初始化数据，云端同步:', this.cloudSyncEnabled);
+    
+    if (this.cloudSyncEnabled && this.currentUser) {
+        try {
+            await this.loadFromCloud();
+            console.log('云端数据加载成功');
+        } catch (error) {
+            console.error('从云端加载失败，使用本地数据:', error);
             this.projects = this.loadProjectsFromLocal();
             this.documents = this.loadDocumentsFromLocal();
         }
-        this.emit('projectsChanged', this.projects);
-        this.emit('documentsChanged', this.documents);
+    } else {
+        console.log('使用本地数据');
+        this.projects = this.loadProjectsFromLocal();
+        this.documents = this.loadDocumentsFromLocal();
     }
     
+    console.log('数据初始化完成，项目数量:', this.projects.length, '文档数量:', this.documents.length);
+    
+    this.emit('projectsChanged', this.projects);
+    this.emit('documentsChanged', this.documents);
+}
+    
     // 从云端加载数据
-    async loadFromCloud() {
-        const userId = this.getCurrentUserId();
-        if (!userId) return;
+// 从云端加载数据 - 修复版本
+async loadFromCloud() {
+    const userId = this.getCurrentUserId();
+    if (!userId) {
+        console.log('未登录用户，跳过云端加载');
+        return;
+    }
+    
+    try {
+        console.log('从云端加载数据，用户ID:', userId);
         
         // 加载项目
         const projectsRes = await fetch(`${this.apiBase}/api/projects?userId=${userId}`);
+        console.log('项目API响应状态:', projectsRes.status);
+        
+        if (!projectsRes.ok) {
+            throw new Error(`项目API错误: ${projectsRes.status}`);
+        }
+        
         const projectsData = await projectsRes.json();
+        console.log('项目API响应数据:', projectsData);
+        
         if (projectsData.success) {
-            this.projects = projectsData.projects;
+            this.projects = projectsData.projects || [];
+            console.log('加载项目成功，数量:', this.projects.length);
+        } else {
+            throw new Error(projectsData.error || '获取项目失败');
         }
         
         // 加载文档
         const documentsRes = await fetch(`${this.apiBase}/api/documents?userId=${userId}`);
-        const documentsData = await documentsRes.json();
-        if (documentsData.success) {
-            this.documents = documentsData.documents;
+        console.log('文档API响应状态:', documentsRes.status);
+        
+        if (documentsRes.ok) {
+            const documentsData = await documentsRes.json();
+            console.log('文档API响应数据:', documentsData);
+            
+            if (documentsData.success) {
+                this.documents = documentsData.documents || [];
+                console.log('加载文档成功，数量:', this.documents.length);
+            }
+        } else {
+            console.warn('文档API调用失败，跳过文档加载');
         }
+        
+    } catch (error) {
+        console.error('从云端加载失败，使用本地数据:', error);
+        throw error; // 重新抛出错误，让调用方处理
     }
+}
     
     // 获取当前登录用户
     getCurrentUser() {
@@ -166,38 +206,58 @@ class DataManager {
         
         if (this.cloudSyncEnabled) {
             try {
+                console.log('云端模式：创建项目', { userId, name: projectData.name });
+                
                 const response = await fetch(`${this.apiBase}/api/projects`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        userId,
+                        userId: parseInt(userId), // 确保是数字
                         name: projectData.name,
-                        description: projectData.description
+                        description: projectData.description || ''
                     })
                 });
+                
+                console.log('API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
                 const result = await response.json();
+                console.log('API响应数据:', result);
+                
                 if (result.success) {
-                    this.projects.push(result.project);
+                    const newProject = result.project;
+                    console.log('云端创建项目成功:', newProject);
+                    
+                    // 添加到本地列表
+                    this.projects.push(newProject);
                     this.emit('projectsChanged', this.projects);
-                    return result.project;
+                    return newProject;
+                } else {
+                    throw new Error(result.error || '创建项目失败');
                 }
             } catch (error) {
                 console.error('云端创建项目失败，保存到本地:', error);
+                // 继续执行本地模式
             }
         }
         
         // 本地模式或云端失败时的后备方案
+        console.log('本地模式：创建项目');
         const newProject = {
             id: generateUUID(),
             userId: userId,
             name: projectData.name,
-            description: projectData.description,
+            description: projectData.description || '',
             createdAt: getCurrentTimestamp(),
             updatedAt: getCurrentTimestamp()
         };
         
         this.projects.push(newProject);
         this.saveProjects();
+        this.emit('projectsChanged', this.projects);
         return newProject;
     }
     

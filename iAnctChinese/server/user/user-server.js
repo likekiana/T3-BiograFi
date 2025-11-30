@@ -1,58 +1,52 @@
 /**
- * 用户管理服务器 - Express 版本
+ * 用户管理服务器 - Express 版本 (MySQL数据库)
  * 提供用户注册、登录、信息更新 API
- * 自动保存到 database/data.json 文件
  */
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs').promises;
-const path = require('path');
+const bcrypt = require('bcryptjs'); // 添加密码加密
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 5002;
-
-// 数据文件路径
-const DATA_FILE = path.join(__dirname, '..', '..', 'database', 'data.json');
 
 // 中间件
 app.use(cors());
 app.use(express.json());
 
-// 加载数据
-async function loadData() {
-    try {
-        const content = await fs.readFile(DATA_FILE, 'utf-8');
-        return JSON.parse(content);
-    } catch (error) {
-        console.log('加载数据失败，使用空数据');
-        return { users: [], projects: [], documents: [], annotations: [] };
-    }
+// 密码加密函数
+async function hashPassword(password) {
+    const saltRounds = 10;
+    return await bcrypt.hash(password, saltRounds);
 }
 
-// 保存数据
-async function saveData(data) {
-    try {
-        await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-        return true;
-    } catch (error) {
-        console.error('保存数据失败:', error);
-        return false;
-    }
-}
-
-// 获取当前时间戳
-function getTimestamp() {
-    return new Date().toISOString().slice(0, 19).replace('T', ' ');
+// 验证密码函数
+async function verifyPassword(password, hash) {
+    return await bcrypt.compare(password, hash);
 }
 
 // ============ API 路由 ============
 
-// 健康检查
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'User Management Server (Express)' });
+// 健康检查（保持不变）
+app.get('/api/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        res.json({ 
+            status: 'ok', 
+            service: 'User Management Server (Express + MySQL)',
+            database: 'connected'
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'error', 
+            service: 'User Management Server',
+            database: 'disconnected',
+            error: error.message 
+        });
+    }
 });
 
-// 用户登录
+// 用户登录 - 修复密码验证
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -64,17 +58,23 @@ app.post('/api/login', async (req, res) => {
             });
         }
         
-        const data = await loadData();
-        const user = data.users.find(u => u.username === username);
+        const [users] = await db.query(
+            'SELECT * FROM users WHERE username = ?',
+            [username]
+        );
         
-        if (!user) {
+        if (users.length === 0) {
             return res.status(404).json({ 
                 success: false, 
                 error: '用户名不存在' 
             });
         }
         
-        if (user.password !== password) {
+        const user = users[0];
+        
+        // 修复：使用bcrypt验证密码
+        const isPasswordValid = await verifyPassword(password, user.password_hash);
+        if (!isPasswordValid) {
             return res.status(401).json({ 
                 success: false, 
                 error: '密码错误' 
@@ -88,13 +88,12 @@ app.post('/api/login', async (req, res) => {
             });
         }
         
-        // 更新最后登录时间
-        user.last_login = getTimestamp();
-        await saveData(data);
+        await db.query(
+            'UPDATE users SET last_login = NOW() WHERE id = ?',
+            [user.id]
+        );
         
-        // 返回用户信息（不含密码）
-        const { password: _, ...userInfo } = user;
-        
+        const { password_hash, ...userInfo } = user;
         res.json({ success: true, user: userInfo });
         
     } catch (error) {
@@ -106,12 +105,11 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// 用户注册
+// 用户注册 - 修复密码加密
 app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
         
-        // 验证输入
         if (!username || username.length < 3 || username.length > 20) {
             return res.status(400).json({ 
                 success: false, 
@@ -133,59 +131,44 @@ app.post('/api/register', async (req, res) => {
             });
         }
         
-        const data = await loadData();
+        // 检查用户名和邮箱
+        const [existingUsers] = await db.query(
+            'SELECT id FROM users WHERE username = ? OR email = ?',
+            [username, email]
+        );
         
-        // 检查用户名是否已存在
-        if (data.users.some(u => u.username === username)) {
-            return res.status(409).json({ 
-                success: false, 
-                error: '用户名已被注册' 
-            });
-        }
-        
-        // 检查邮箱是否已存在
-        if (data.users.some(u => u.email === email)) {
-            return res.status(409).json({ 
-                success: false, 
-                error: '邮箱已被注册' 
-            });
-        }
-        
-        // 获取新的用户ID
-        const newId = data.users.length > 0 
-            ? Math.max(...data.users.map(u => u.id)) + 1 
-            : 1;
-        
-        // 创建新用户
-        const newUser = {
-            id: newId,
-            username,
-            email,
-            password,
-            created_at: getTimestamp(),
-            last_login: null,
-            is_active: true
-        };
-        
-        data.users.push(newUser);
-        
-        // 保存到文件
-        const saved = await saveData(data);
-        
-        if (saved) {
-            // 返回用户信息（不含密码）
-            const { password: _, ...userInfo } = newUser;
+        if (existingUsers.length > 0) {
+            // 更精确的错误信息
+            const [checkUser] = await db.query(
+                'SELECT id FROM users WHERE username = ?',
+                [username]
+            );
+            const errorMsg = checkUser.length > 0 ? '用户名已被注册' : '邮箱已被注册';
             
-            res.status(201).json({ 
-                success: true, 
-                user: userInfo 
-            });
-        } else {
-            res.status(500).json({ 
+            return res.status(409).json({ 
                 success: false, 
-                error: '保存用户数据失败' 
+                error: errorMsg 
             });
         }
+        
+        // 修复：加密密码
+        const hashedPassword = await hashPassword(password);
+        
+        const [result] = await db.query(
+            `INSERT INTO users (username, email, password_hash, created_at, is_active) 
+             VALUES (?, ?, ?, NOW(), 1)`,
+            [username, email, hashedPassword]  // 使用加密后的密码
+        );
+        
+        const [newUsers] = await db.query(
+            'SELECT id, username, email, created_at, last_login, is_active FROM users WHERE id = ?',
+            [result.insertId]
+        );
+        
+        res.status(201).json({ 
+            success: true, 
+            user: newUsers[0] 
+        });
         
     } catch (error) {
         console.error('注册错误:', error);
@@ -196,7 +179,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// 更新用户信息
+// 更新用户信息 - 修复密码加密
 app.patch('/api/users/:userId', async (req, res) => {
     try {
         const userId = parseInt(req.params.userId);
@@ -209,27 +192,39 @@ app.patch('/api/users/:userId', async (req, res) => {
             });
         }
         
-        const data = await loadData();
-        const user = data.users.find(u => u.id === userId);
+        const [users] = await db.query(
+            'SELECT id FROM users WHERE id = ?',
+            [userId]
+        );
         
-        if (!user) {
+        if (users.length === 0) {
             return res.status(404).json({ 
                 success: false, 
                 error: '用户不存在' 
             });
         }
         
-        // 检查邮箱是否被其他用户使用
-        if (email && data.users.some(u => u.id !== userId && u.email === email)) {
-            return res.status(409).json({ 
-                success: false, 
-                error: '邮箱已被其他用户使用' 
-            });
+        // 检查邮箱
+        if (email) {
+            const [existingEmails] = await db.query(
+                'SELECT id FROM users WHERE email = ? AND id != ?',
+                [email, userId]
+            );
+            
+            if (existingEmails.length > 0) {
+                return res.status(409).json({ 
+                    success: false, 
+                    error: '邮箱已被其他用户使用' 
+                });
+            }
         }
         
-        // 更新用户信息
+        let updateFields = [];
+        let updateValues = [];
+        
         if (email) {
-            user.email = email;
+            updateFields.push('email = ?');
+            updateValues.push(email);
         }
         
         if (password) {
@@ -239,26 +234,29 @@ app.patch('/api/users/:userId', async (req, res) => {
                     error: '密码至少需要6个字符' 
                 });
             }
-            user.password = password;
+            // 修复：加密新密码
+            const hashedPassword = await hashPassword(password);
+            updateFields.push('password_hash = ?');
+            updateValues.push(hashedPassword);
         }
         
-        // 保存到文件
-        const saved = await saveData(data);
-        
-        if (saved) {
-            // 返回更新后的用户信息（不含密码）
-            const { password: _, ...userInfo } = user;
-            
-            res.json({ 
-                success: true, 
-                user: userInfo 
-            });
-        } else {
-            res.status(500).json({ 
-                success: false, 
-                error: '保存用户数据失败' 
-            });
+        if (updateFields.length > 0) {
+            updateValues.push(userId);
+            await db.query(
+                `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+                updateValues
+            );
         }
+        
+        const [updatedUsers] = await db.query(
+            'SELECT id, username, email, created_at, last_login, is_active FROM users WHERE id = ?',
+            [userId]
+        );
+        
+        res.json({ 
+            success: true, 
+            user: updatedUsers[0] 
+        });
         
     } catch (error) {
         console.error('更新用户信息错误:', error);
@@ -268,335 +266,288 @@ app.patch('/api/users/:userId', async (req, res) => {
         });
     }
 });
-
-// 获取所有用户（管理功能，可选）
-app.get('/api/users', async (req, res) => {
-    try {
-        const data = await loadData();
-        
-        // 返回用户列表（不含密码）
-        const users = data.users.map(({ password, ...user }) => user);
-        
-        res.json({ success: true, users });
-        
-    } catch (error) {
-        console.error('获取用户列表错误:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: '服务器错误' 
-        });
-    }
-});
-
 // ============ 项目管理 API ============
 
-// 获取用户的所有项目
-app.get('/api/projects', async (req, res) => {
+
+
+// ============ 新增API：标注管理 ============
+
+// 获取文档的标注
+app.get('/api/documents/:documentId/annotations', async (req, res) => {
     try {
-        const userId = parseInt(req.query.userId);
-        if (!userId) {
-            return res.status(400).json({ success: false, error: '缺少用户ID' });
-        }
+        const documentId = parseInt(req.params.documentId);
         
-        const data = await loadData();
-        const projects = data.projects.filter(p => p.userId === userId);
+        const [annotations] = await db.query(
+            `SELECT a.*, u.username as created_by_username 
+             FROM annotations a 
+             LEFT JOIN users u ON a.created_by = u.id 
+             WHERE a.document_id = ? 
+             ORDER BY a.start_index`,
+            [documentId]
+        );
         
-        res.json({ success: true, projects });
+        res.json({ success: true, annotations });
     } catch (error) {
-        console.error('获取项目列表错误:', error);
+        console.error('获取标注错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
 
-// 创建项目
-app.post('/api/projects', async (req, res) => {
+// 创建标注
+app.post('/api/annotations', async (req, res) => {
     try {
-        const { userId, name, description } = req.body;
+        const { document_id, start_index, end_index, label, confidence, created_by } = req.body;
         
-        if (!userId || !name) {
+        if (!document_id || start_index === undefined || end_index === undefined || !label) {
             return res.status(400).json({ success: false, error: '缺少必要参数' });
         }
         
-        const data = await loadData();
+        const [result] = await db.query(
+            `INSERT INTO annotations (document_id, start_index, end_index, label, confidence, created_by, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+            [document_id, start_index, end_index, label, confidence || null, created_by || null]
+        );
         
-        const newProject = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            userId,
-            name,
-            description: description || '',
-            createdAt: getTimestamp(),
-            updatedAt: getTimestamp()
-        };
+        const [annotations] = await db.query(
+            'SELECT * FROM annotations WHERE id = ?',
+            [result.insertId]
+        );
         
-        data.projects.push(newProject);
-        await saveData(data);
-        
-        res.status(201).json({ success: true, project: newProject });
+        res.status(201).json({ success: true, annotation: annotations[0] });
     } catch (error) {
-        console.error('创建项目错误:', error);
+        console.error('创建标注错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
 
-// 更新项目
-app.put('/api/projects/:projectId', async (req, res) => {
+// ============ 新增API：分割管理 ============
+
+// 获取文档的分割结果
+app.get('/api/documents/:documentId/segmentations', async (req, res) => {
     try {
-        const { projectId } = req.params;
-        const { name, description } = req.body;
+        const documentId = parseInt(req.params.documentId);
         
-        const data = await loadData();
-        const project = data.projects.find(p => p.id === projectId);
+        const [segmentations] = await db.query(
+            'SELECT * FROM segmentations WHERE document_id = ? ORDER BY created_at DESC',
+            [documentId]
+        );
         
-        if (!project) {
-            return res.status(404).json({ success: false, error: '项目不存在' });
-        }
-        
-        if (name) project.name = name;
-        if (description !== undefined) project.description = description;
-        project.updatedAt = getTimestamp();
-        
-        await saveData(data);
-        
-        res.json({ success: true, project });
+        res.json({ success: true, segmentations });
     } catch (error) {
-        console.error('更新项目错误:', error);
+        console.error('获取分割结果错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
 
-// 删除项目
-app.delete('/api/projects/:projectId', async (req, res) => {
-    try {
-        const { projectId } = req.params;
-        
-        const data = await loadData();
-        const index = data.projects.findIndex(p => p.id === projectId);
-        
-        if (index === -1) {
-            return res.status(404).json({ success: false, error: '项目不存在' });
-        }
-        
-        data.projects.splice(index, 1);
-        // 同时删除该项目下的所有文档
-        data.documents = data.documents.filter(d => d.projectId !== projectId);
-        
-        await saveData(data);
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('删除项目错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误' });
-    }
-});
-
-// ============ 文档管理 API ============
-
-// 获取用户的所有文档
-app.get('/api/documents', async (req, res) => {
-    try {
-        const userId = parseInt(req.query.userId);
-        const projectId = req.query.projectId;
-        
-        if (!userId) {
-            return res.status(400).json({ success: false, error: '缺少用户ID' });
-        }
-        
-        const data = await loadData();
-        let documents = data.documents.filter(d => d.userId === userId);
-        
-        if (projectId) {
-            documents = documents.filter(d => d.projectId === projectId);
-        }
-        
-        res.json({ success: true, documents });
-    } catch (error) {
-        console.error('获取文档列表错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误' });
-    }
-});
-
-// 创建文档
+// 创建文档 - 修复版本（支持UUID projectId）
 app.post('/api/documents', async (req, res) => {
     try {
+        console.log('=== 收到创建文档请求 ===');
         const { userId, projectId, name, description, content, author } = req.body;
         
-        if (!userId || !projectId || !name) {
-            return res.status(400).json({ success: false, error: '缺少必要参数' });
+        console.log('请求参数:', { userId, projectId, name });
+        
+        // 参数验证
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数: userId' 
+            });
         }
         
-        const data = await loadData();
-        
-        const newDocument = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            userId,
-            projectId,
-            name,
-            description: description || '',
-            content: content || '',
-            author: author || '',
-            entityAnnotations: [],
-            relationAnnotations: [],
-            createdAt: getTimestamp(),
-            updatedAt: getTimestamp()
-        };
-        
-        data.documents.push(newDocument);
-        await saveData(data);
-        
-        res.status(201).json({ success: true, document: newDocument });
-    } catch (error) {
-        console.error('创建文档错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误' });
-    }
-});
-
-// 更新文档
-app.put('/api/documents/:documentId', async (req, res) => {
-    try {
-        const { documentId } = req.params;
-        const updates = req.body;
-        
-        const data = await loadData();
-        const document = data.documents.find(d => d.id === documentId);
-        
-        if (!document) {
-            return res.status(404).json({ success: false, error: '文档不存在' });
+        if (!projectId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数: projectId' 
+            });
         }
         
-        // 更新允许的字段
-        const allowedFields = ['name', 'description', 'content', 'author', 'entityAnnotations', 'relationAnnotations'];
-        allowedFields.forEach(field => {
-            if (updates[field] !== undefined) {
-                document[field] = updates[field];
-            }
+        if (!name) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数: 文档名称' 
+            });
+        }
+        
+        // 根据projectId（可能是UUID或数字）查找项目
+        let actualProjectId;
+        let projectQuery;
+        let queryParams;
+        
+        // 判断projectId是UUID格式还是数字格式
+        if (typeof projectId === 'string' && projectId.includes('-')) {
+            // UUID格式 - 通过original_id查找
+            projectQuery = 'SELECT id FROM projects WHERE original_id = ?';
+            queryParams = [projectId];
+        } else {
+            // 数字格式 - 直接使用
+            projectQuery = 'SELECT id FROM projects WHERE id = ?';
+            queryParams = [parseInt(projectId)];
+        }
+        
+        console.log('执行项目查询:', projectQuery, queryParams);
+        
+        const [projects] = await db.query(projectQuery, queryParams);
+        
+        if (projects.length === 0) {
+            console.log('项目不存在，projectId:', projectId);
+            return res.status(404).json({ 
+                success: false, 
+                error: '指定的项目不存在，请先创建项目' 
+            });
+        }
+        
+        actualProjectId = projects[0].id;
+        const numericUserId = parseInt(userId);
+        
+        console.log('找到项目，实际项目ID:', actualProjectId, '用户ID:', numericUserId);
+        
+        // 检查用户是否存在
+        const [users] = await db.query(
+            'SELECT id FROM users WHERE id = ?',
+            [numericUserId]
+        );
+        
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: '指定的用户不存在' 
+            });
+        }
+        
+        // 生成唯一ID
+        const originalId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log('准备插入文档数据...');
+        
+        // 插入数据库
+        const [result] = await db.query(
+            `INSERT INTO documents (original_id, project_id, user_id, name, description, content, author, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+                originalId, 
+                actualProjectId, 
+                numericUserId,
+                name.trim(),
+                description || '',
+                content || '',
+                author || ''
+            ]
+        );
+        
+        console.log('文档插入成功，ID:', result.insertId);
+        
+        // 获取新创建的文档
+        const [documents] = await db.query(
+            'SELECT * FROM documents WHERE id = ?',
+            [result.insertId]
+        );
+        
+        console.log('文档创建完成');
+        
+        res.status(201).json({ 
+            success: true, 
+            document: documents[0],
+            message: '文档创建成功'
         });
         
-        document.updatedAt = getTimestamp();
-        
-        await saveData(data);
-        
-        res.json({ success: true, document });
     } catch (error) {
-        console.error('更新文档错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误' });
+        console.error('创建文档错误:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '创建文档失败: ' + error.message 
+        });
     }
 });
 
-// 删除文档
-app.delete('/api/documents/:documentId', async (req, res) => {
+// 获取文档列表
+app.get('/api/documents', async (req, res) => {
     try {
-        const { documentId } = req.params;
+        const { userId, projectId } = req.query;
         
-        const data = await loadData();
-        const index = data.documents.findIndex(d => d.id === documentId);
-        
-        if (index === -1) {
-            return res.status(404).json({ success: false, error: '文档不存在' });
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数: userId' 
+            });
         }
         
-        data.documents.splice(index, 1);
+        let query = `
+            SELECT d.*, p.name as project_name, u.username 
+            FROM documents d 
+            LEFT JOIN projects p ON d.project_id = p.id 
+            LEFT JOIN users u ON d.user_id = u.id 
+            WHERE d.user_id = ?
+        `;
+        let params = [parseInt(userId)];
         
-        await saveData(data);
+        if (projectId) {
+            query += ' AND d.project_id = ?';
+            params.push(parseInt(projectId));
+        }
         
-        res.json({ success: true });
+        query += ' ORDER BY d.updated_at DESC';
+        
+        const [documents] = await db.query(query, params);
+        
+        res.json({ 
+            success: true, 
+            documents 
+        });
+        
     } catch (error) {
-        console.error('删除文档错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误' });
+        console.error('获取文档列表错误:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '获取文档列表失败' 
+        });
     }
 });
 
-// ============ 导出管理 API ============
-
-// 导出选中的文档与标注
-app.post('/api/export-documents', async (req, res) => {
+// 获取单个文档详情
+app.get('/api/documents/:documentId', async (req, res) => {
     try {
-        const { documentIds } = req.body;
+        const documentId = parseInt(req.params.documentId);
         
-        if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
-            return res.status(400).json({ success: false, error: '请提供要导出的文档ID列表' });
-        }
-        
-        const data = await loadData();
-        const documents = data.documents.filter(d => documentIds.includes(d.id));
+        const [documents] = await db.query(`
+            SELECT d.*, p.name as project_name, u.username 
+            FROM documents d 
+            LEFT JOIN projects p ON d.project_id = p.id 
+            LEFT JOIN users u ON d.user_id = u.id 
+            WHERE d.id = ?
+        `, [documentId]);
         
         if (documents.length === 0) {
-            return res.status(404).json({ success: false, error: '未找到指定的文档' });
-        }
-        
-        // 导出文件夹路径
-        const exportDir = path.join(__dirname, '..', '..', 'exported data');
-        
-        // 确保导出文件夹存在
-        try {
-            await fs.access(exportDir);
-        } catch {
-            await fs.mkdir(exportDir, { recursive: true });
-        }
-        
-        const exportTime = getTimestamp();
-        const exportedFiles = [];
-        
-        // 为每个文档生成txt和csv文件
-        for (const doc of documents) {
-            // 生成txt文件
-            const txtContent = `文档名称: ${doc.name}
-文档描述: ${doc.description || '无'}
-创建时间: ${doc.createdAt}
-更新时间: ${doc.updatedAt}
-导出时间: ${exportTime}
-
-文档内容（古文原文）:
-${doc.content || ''}`;
-            
-            const txtFileName = `${doc.name.replace(/\.(txt|md)$/i, '')}.txt`;
-            const txtFilePath = path.join(exportDir, txtFileName);
-            await fs.writeFile(txtFilePath, txtContent, 'utf-8');
-            exportedFiles.push(txtFileName);
-            
-            // 生成csv文件
-            const csvLines = ['number,label,Instance'];
-            const annotations = doc.entityAnnotations || [];
-            
-            annotations.forEach((ann, index) => {
-                const number = index + 1;
-                const label = ann.label || '';
-                const instance = doc.content ? doc.content.slice(ann.start, ann.end) : '';
-                // CSV格式：如果字段包含逗号或引号，需要用引号包裹
-                const escapedInstance = instance.includes(',') || instance.includes('"') 
-                    ? `"${instance.replace(/"/g, '""')}"` 
-                    : instance;
-                csvLines.push(`${number},${label},${escapedInstance}`);
+            return res.status(404).json({ 
+                success: false, 
+                error: '文档不存在' 
             });
-            
-            const csvContent = csvLines.join('\n');
-            const csvFileName = `${doc.name.replace(/\.(txt|md)$/i, '')}+实体标注.csv`;
-            const csvFilePath = path.join(exportDir, csvFileName);
-            await fs.writeFile(csvFilePath, csvContent, 'utf-8');
-            exportedFiles.push(csvFileName);
         }
         
         res.json({ 
             success: true, 
-            message: `成功导出 ${documents.length} 个文档`,
-            exportedFiles,
-            exportCount: documents.length
+            document: documents[0] 
         });
         
     } catch (error) {
-        console.error('导出文档错误:', error);
-        res.status(500).json({ success: false, error: '服务器错误: ' + error.message });
+        console.error('获取文档错误:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '获取文档失败' 
+        });
     }
 });
 
 // 启动服务器
 app.listen(PORT, () => {
     console.log('\n' + '='.repeat(50));
-    console.log('🚀 用户管理服务已启动 (Express)');
-    console.log('📡 端口:', PORT);
-    console.log('📁 数据文件:', DATA_FILE);
+    console.log('🚀🚀 用户管理服务已启动 (Express + MySQL)');
+    console.log('📡📡 端口:', PORT);
+    console.log('🔐🔐 密码加密: 已启用');
+    console.log('🗄️🗄️  数据库:', process.env.DB_NAME || 'iannot');
     console.log('='.repeat(50));
     console.log('✅ 功能: 用户注册、登录、信息更新');
-    console.log('✅ 数据: 自动保存到 database/data.json');
+    console.log('✅ 安全: 密码加密存储');
+    console.log('✅ 数据: MySQL数据库存储');
     console.log('='.repeat(50) + '\n');
 });
-

@@ -781,3 +781,25 @@ function t(key) {
     const lang = getCurrentLanguage();
     return translations[lang]?.[key] || translations['简体中文'][key] || key;
 }
+/**
+ * Generate UUID v4
+ * 确保与 data-manager.js 中调用的函数名一致
+ */
+function generateUUID() {
+    try {
+        // 现代浏览器的标准方法
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+    } catch (e) {}
+    
+    // 兼容旧浏览器的实现
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// 确保函数可用
+window.generateUUID = generateUUID;
