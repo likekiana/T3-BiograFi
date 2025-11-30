@@ -1,0 +1,283 @@
+/* src/styles/components/Visualization/RelationshipGraph.css */
+.relationship-graph {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.graph-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3em;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background 0.3s;
+}
+
+.reset-btn:hover {
+  background: #5a6268;
+}
+
+.graph-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #f8fdff;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  touch-action: none; /* 防止触摸默认行为 */
+}
+
+.graph-visualization {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.1s ease-out;
+  will-change: transform;
+}
+
+/* 人物节点 */
+.graph-nodes {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+}
+
+.graph-node {
+  position: absolute;
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border-radius: 50%;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  user-select: none;
+}
+
+.graph-node:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.5);
+  z-index: 40;
+}
+
+.center-node {
+  background: linear-gradient(135deg, #dc3545, #c82333) !important;
+  border: 3px solid #ffc107;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+  font-weight: bold;
+}
+
+.node-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.node-name {
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1.1;
+  max-width: 90%;
+  word-break: keep-all;
+  text-align: center;
+}
+
+.node-frequency {
+  font-size: 0.55em;
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1px 3px;
+  border-radius: 6px;
+  margin-top: 1px;
+}
+
+.center-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #ffc107;
+  color: #856404;
+  font-size: 0.45em;
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* 连线容器 */
+.links-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.link-group {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* 连线样式 - 更细的线 */
+.relationship-line {
+  position: absolute;
+  background: rgba(0, 123, 255, 0.7);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 15;
+  transform-origin: 0 50%;
+  border: none;
+}
+
+/* 关系标签 */
+.relationship-label {
+  position: absolute;
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-size: 0.6em;
+  font-weight: 600;
+  border: 1px solid;
+  background: rgba(255, 255, 255, 0.95);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 16;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+}
+
+/* 图例 */
+.graph-legend {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 160px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  backdrop-filter: blur(5px);
+}
+
+.graph-legend h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.8em;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid white;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.center-color {
+  background: #dc3545;
+}
+
+.legend-line {
+  width: 18px;
+  height: 1px;
+  border-radius: 0.5px;
+}
+
+.normal-line {
+  background: #007bff;
+}
+
+.strong-line {
+  background: #dc3545;
+  height: 2px;
+}
+
+.legend-stats {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+}
+
+.legend-stats p {
+  margin: 2px 0;
+  font-size: 0.75em;
+  color: #666;
+}
+
+.zoom-hint {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+}
+
+.zoom-hint p {
+  margin: 0;
+  font-size: 0.7em;
+  color: #999;
+  text-align: center;
+}
+
+/* 空状态 */
+.empty-graph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-graph i {
+  font-size: 3em;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}

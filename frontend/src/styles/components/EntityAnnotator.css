@@ -1,0 +1,301 @@
+/* src/styles/components/EntityAnnotator.css */
+.entity-annotator {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.annotator-controls {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.control-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.label-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.label-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.control-buttons .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.control-buttons .action-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.control-buttons .action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.control-buttons .action-btn.primary {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.control-buttons .action-btn.primary:hover:not(:disabled) {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+/* 标注预览 */
+.annotation-preview {
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.annotation-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.annotation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.empty-annotations {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.annotation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.annotation-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.badge-人物 { background-color: #fef3c7; color: #92400e; }
+.badge-地名 { background-color: #dbeafe; color: #1e40af; }
+.badge-时间 { background-color: #f3e8ff; color: #7c3aed; }
+.badge-器物 { background-color: #dcfce7; color: #166534; }
+.badge-概念 { background-color: #fce7f3; color: #be185d; }
+.badge-其他 { background-color: #f1f5f9; color: #475569; }
+
+.annotation-text {
+  flex: 1;
+  font-size: 13px;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
+}
+
+.delete-annotation-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #9ca3af;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-annotation-btn:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+
+/* 文本预览 */
+.text-preview {
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.text-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.annotated-text {
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  line-height: 1.6;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
+  white-space: pre-wrap;
+  min-height: 100px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.entity-annotation {
+  position: relative;
+  background-color: #fff7ed;
+  border-bottom: 2px solid #fb923c;
+  padding: 1px 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.entity-annotation:hover {
+  background-color: #fed7aa;
+}
+
+.entity-人物 { background-color: #fef3c7; border-color: #f59e0b; }
+.entity-地名 { background-color: #dbeafe; border-color: #3b82f6; }
+.entity-时间 { background-color: #f3e8ff; border-color: #8b5cf6; }
+.entity-器物 { background-color: #dcfce7; border-color: #22c55e; }
+.entity-概念 { background-color: #fce7f3; border-color: #ec4899; }
+.entity-其他 { background-color: #f1f5f9; border-color: #64748b; }
+
+.annotation-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.entity-annotation:hover .annotation-delete-btn {
+  opacity: 1;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .annotator-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .control-group {
+    min-width: auto;
+  }
+  
+  .control-buttons {
+    justify-content: stretch;
+  }
+  
+  .control-buttons .action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  .annotation-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .annotation-badge {
+    align-self: flex-start;
+  }
+}
+
+/* 滚动条样式 */
+.annotation-list::-webkit-scrollbar,
+.annotated-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.annotation-list::-webkit-scrollbar-track,
+.annotated-text::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.annotation-list::-webkit-scrollbar-thumb,
+.annotated-text::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.annotation-list::-webkit-scrollbar-thumb:hover,
+.annotated-text::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
