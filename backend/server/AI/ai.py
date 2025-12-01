@@ -5,6 +5,8 @@ import sys
 import io
 import os
 import requests
+import json
+import re
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -152,9 +154,6 @@ def auto_annotate():
     try:
         response = generate_response(prompt, DEEPSEEK_MODEL)
         # 尝试解析返回的JSON
-        import json
-        import re
-        
         # 清理可能的markdown代码块标记
         cleaned = response.strip()
         if cleaned.startswith('```'):

@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
@@ -86,6 +87,22 @@ async function ensureSchema() {
             CONSTRAINT fk_documents_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             CONSTRAINT fk_documents_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+        try {
+            const [entityCols] = await conn.execute(`SHOW COLUMNS FROM documents LIKE 'entityAnnotations'`);
+            if (!Array.isArray(entityCols) || entityCols.length === 0) {
+                await conn.execute(`ALTER TABLE documents ADD COLUMN entityAnnotations JSON NULL`);
+                await conn.execute(`UPDATE documents SET entityAnnotations = '[]' WHERE entityAnnotations IS NULL`);
+                console.log('✅ 已为 documents 表添加 entityAnnotations 列');
+            }
+            const [relationCols] = await conn.execute(`SHOW COLUMNS FROM documents LIKE 'relationAnnotations'`);
+            if (!Array.isArray(relationCols) || relationCols.length === 0) {
+                await conn.execute(`ALTER TABLE documents ADD COLUMN relationAnnotations JSON NULL`);
+                await conn.execute(`UPDATE documents SET relationAnnotations = '[]' WHERE relationAnnotations IS NULL`);
+                console.log('✅ 已为 documents 表添加 relationAnnotations 列');
+            }
+        } catch (e) {
+            console.warn('⚠️ 检查/添加 JSON 标注列失败:', e.message);
+        }
 
         await conn.execute(`CREATE TABLE IF NOT EXISTS entity_annotations (
             id INT AUTO_INCREMENT PRIMARY KEY,

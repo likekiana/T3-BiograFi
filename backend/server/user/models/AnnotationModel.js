@@ -31,7 +31,7 @@ class AnnotationModel {
 
     static async addEntity(documentId, { start, end, label, text }) {
         const [result] = await pool.execute(
-            'INSERT INTO entity_annotations (document_id, start_index, end_index, label, text_content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
+            'INSERT INTO entity_annotations (document_id, start_index, end_index, label, text_content, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
             [documentId, start, end, label, text || null]
         );
         const [rows] = await pool.execute(

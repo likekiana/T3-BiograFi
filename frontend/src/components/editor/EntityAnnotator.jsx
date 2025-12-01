@@ -128,6 +128,54 @@ const EntityAnnotator = ({
     }
   };
 
+  // 解析并渲染带有 HTML 格式标签的文本
+  const parseFormattedText = (text, keyPrefix = '') => {
+    if (!text) return text;
+
+    const elements = [];
+    let currentIndex = 0;
+    // 匹配 <b>, <i>, <u> 标签
+    const formatRegex = /<(b|i|u)>(.*?)<\/\1>/g;
+    let match;
+
+    while ((match = formatRegex.exec(text)) !== null) {
+      // 添加标签之前的普通文本
+      if (match.index > currentIndex) {
+        elements.push(
+          <span key={`${keyPrefix}-text-${currentIndex}`}>
+            {text.slice(currentIndex, match.index)}
+          </span>
+        );
+      }
+
+      // 添加格式化的文本
+      const tag = match[1];
+      const content = match[2];
+      const TagComponent = tag; // 'b', 'i', or 'u'
+      
+      elements.push(
+        React.createElement(
+          TagComponent,
+          { key: `${keyPrefix}-${tag}-${match.index}` },
+          content
+        )
+      );
+
+      currentIndex = match.index + match[0].length;
+    }
+
+    // 添加剩余的普通文本
+    if (currentIndex < text.length) {
+      elements.push(
+        <span key={`${keyPrefix}-text-${currentIndex}`}>
+          {text.slice(currentIndex)}
+        </span>
+      );
+    }
+
+    return elements.length > 0 ? elements : text;
+  };
+
   const renderAnnotatedText = () => {
     if (!content) return content;
 
@@ -136,23 +184,24 @@ const EntityAnnotator = ({
     const sortedAnnotations = [...annotations].sort((a, b) => a.start - b.start);
 
     sortedAnnotations.forEach((annotation, index) => {
-      // 添加未标注的文本
+      // 添加未标注的文本（支持格式化）
       if (annotation.start > lastIndex) {
+        const textSegment = content.slice(lastIndex, annotation.start);
         elements.push(
           <span key={`text-${lastIndex}`}>
-            {content.slice(lastIndex, annotation.start)}
+            {parseFormattedText(textSegment, `seg-${lastIndex}`)}
           </span>
         );
       }
 
-      // 添加标注的文本
+      // 添加标注的文本（支持格式化）
       elements.push(
         <span
           key={`annotation-${index}`}
           className={`entity-annotation entity-${annotation.label}`}
           title={`${annotation.label}: ${annotation.text}`}
         >
-          {annotation.text}
+          {parseFormattedText(annotation.text, `ann-${index}`)}
           <button
             className="annotation-delete-btn"
             onClick={() => onDeleteAnnotation && onDeleteAnnotation(index)}
@@ -165,11 +214,12 @@ const EntityAnnotator = ({
       lastIndex = annotation.end;
     });
 
-    // 添加剩余文本
+    // 添加剩余文本（支持格式化）
     if (lastIndex < content.length) {
+      const textSegment = content.slice(lastIndex);
       elements.push(
         <span key={`text-${lastIndex}`}>
-          {content.slice(lastIndex)}
+          {parseFormattedText(textSegment, `seg-${lastIndex}`)}
         </span>
       );
     }

@@ -38,19 +38,90 @@ const TextEditor = ({
     }
   };
 
+  const applyFormat = (formatType) => {
+    if (!textareaRef || !textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start === end) {
+      alert('请先选择要格式化的文本');
+      return;
+    }
+
+    const selectedText = text.substring(start, end);
+    let formattedText = '';
+
+    switch (formatType) {
+      case 'bold':
+        formattedText = `<b>${selectedText}</b>`;
+        break;
+      case 'italic':
+        formattedText = `<i>${selectedText}</i>`;
+        break;
+      case 'underline':
+        formattedText = `<u>${selectedText}</u>`;
+        break;
+      default:
+        return;
+    }
+
+    const newText = text.substring(0, start) + formattedText + text.substring(end);
+    setText(newText);
+    if (onChange) {
+      onChange(newText);
+    }
+
+    // 重新设置光标位置
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, start + formattedText.length);
+    }, 0);
+  };
+
+  const clearFormat = () => {
+    if (!textareaRef || !textareaRef.current) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start === end) {
+      alert('请先选择要清除格式的文本');
+      return;
+    }
+
+    const selectedText = text.substring(start, end);
+    // 移除所有 HTML 标签
+    const cleanText = selectedText.replace(/<\/?[^>]+(>|$)/g, '');
+
+    const newText = text.substring(0, start) + cleanText + text.substring(end);
+    setText(newText);
+    if (onChange) {
+      onChange(newText);
+    }
+
+    // 重新设置光标位置
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, start + cleanText.length);
+    }, 0);
+  };
+
   return (
     <div className="text-editor">
       <div className="editor-toolbar">
-        <button className="toolbar-btn" title="粗体">
+        <button className="toolbar-btn" title="粗体" onClick={() => applyFormat('bold')}>
           <i data-feather="bold"></i>
         </button>
-        <button className="toolbar-btn" title="斜体">
+        <button className="toolbar-btn" title="斜体" onClick={() => applyFormat('italic')}>
           <i data-feather="italic"></i>
         </button>
-        <button className="toolbar-btn" title="下划线">
+        <button className="toolbar-btn" title="下划线" onClick={() => applyFormat('underline')}>
           <i data-feather="underline"></i>
         </button>
-        <button className="toolbar-btn" title="清除格式">
+        <button className="toolbar-btn" title="清除格式" onClick={clearFormat}>
           <i data-feather="type"></i>
         </button>
       </div>
