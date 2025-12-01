@@ -17,6 +17,7 @@
 
 .document-info {
   flex: 1;
+  background-color: transparent !important;
 }
 
 .document-title-row {
@@ -24,6 +25,8 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
+  background-color: transparent !important;
+  padding: 0;
 }
 
 .doc-export-checkbox {
@@ -36,8 +39,9 @@
 .document-title {
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: #111827 !important;
   margin: 0;
+  background-color: transparent !important;
 }
 
 .document-detail {

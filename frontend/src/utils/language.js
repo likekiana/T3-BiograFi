@@ -50,6 +50,7 @@ export const translations = {
     // Editor
     'document_editor': '文档编辑器',
     'entity_annotation': '实体标注',
+    'relation_annotation': '关系标注',
     'classical_analysis': '古文解析',
     'auto_segmentation': '自动分词',
     'document_name': '文档名称:',
@@ -69,6 +70,26 @@ export const translations = {
     'other': '其他',
     'add_entity': '对选中文本打标',
     'annotation_list': '标注列表',
+    
+    // Relation annotation
+    'relation_entity1': '实体1',
+    'relation_entity2': '实体2',
+    'relation_name': '关系名称',
+    'select_entity_placeholder': '请选择实体',
+    'enter_relation_name': '请输入关系名称',
+    'add_relation': '添加关系',
+    'adding': '添加中...',
+    'export_relations': '导出关系',
+    'exporting': '导出中...',
+    'relation_list': '关系标注列表',
+    'no_relation_annotations': '暂无关系标注',
+    'entity_required_for_relation': '需要至少两个实体才能标注关系',
+    'select_entities_first': '请先选择两个实体',
+    'select_distinct_entities': '请选择不同的实体',
+    'input_relation_name': '请输入关系名称',
+    'add_relation_failed': '添加关系失败',
+    'delete_relation_failed': '删除关系失败',
+    'no_relations_to_export': '没有可导出的关系',
     
     // Segmentation
     'run_segmentation': '对当前内容分词',
@@ -240,7 +261,8 @@ export const translations = {
     
     // Editor
     'document_editor': '文檔編輯器',
-    'entity_annotation': '實體標注',
+    'entity_annotation': '實體標註',
+    'relation_annotation': '關係標註',
     'classical_analysis': '古文解析',
     'auto_segmentation': '自動分詞',
     'document_name': '文檔名稱:',
@@ -259,7 +281,27 @@ export const translations = {
     'concept': '概念',
     'other': '其他',
     'add_entity': '對選中文本打標',
-    'annotation_list': '標注列表',
+    'annotation_list': '標註列表',
+    
+    // Relation annotation
+    'relation_entity1': '實體1',
+    'relation_entity2': '實體2',
+    'relation_name': '關係名稱',
+    'select_entity_placeholder': '請選擇實體',
+    'enter_relation_name': '請輸入關係名稱',
+    'add_relation': '添加關係',
+    'adding': '添加中...',
+    'export_relations': '導出關係',
+    'exporting': '導出中...',
+    'relation_list': '關係標註列表',
+    'no_relation_annotations': '暫無關係標註',
+    'entity_required_for_relation': '需要至少兩個實體才能標註關係',
+    'select_entities_first': '請先選擇兩個實體',
+    'select_distinct_entities': '請選擇不同的實體',
+    'input_relation_name': '請輸入關係名稱',
+    'add_relation_failed': '添加關係失敗',
+    'delete_relation_failed': '刪除關係失敗',
+    'no_relations_to_export': '沒有可導出的關係',
     
     // Segmentation
     'run_segmentation': '對當前內容分詞',
@@ -429,6 +471,7 @@ export const translations = {
     // Editor
     'document_editor': 'Document Editor',
     'entity_annotation': 'Entity Annotation',
+    'relation_annotation': 'Relation Annotation',
     'classical_analysis': 'Classical Analysis',
     'auto_segmentation': 'Auto Segmentation',
     'document_name': 'Document Name:',
@@ -448,6 +491,26 @@ export const translations = {
     'other': 'Other',
     'add_entity': 'Tag Selected Text',
     'annotation_list': 'Annotation List',
+    
+    // Relation annotation
+    'relation_entity1': 'Entity 1',
+    'relation_entity2': 'Entity 2',
+    'relation_name': 'Relation Name',
+    'select_entity_placeholder': 'Select Entity',
+    'enter_relation_name': 'Enter relation name',
+    'add_relation': 'Add Relation',
+    'adding': 'Adding...',
+    'export_relations': 'Export Relations',
+    'exporting': 'Exporting...',
+    'relation_list': 'Relation List',
+    'no_relation_annotations': 'No relation annotations',
+    'entity_required_for_relation': 'At least two entities required for relation annotation',
+    'select_entities_first': 'Please select two entities first',
+    'select_distinct_entities': 'Please select different entities',
+    'input_relation_name': 'Please enter relation name',
+    'add_relation_failed': 'Failed to add relation',
+    'delete_relation_failed': 'Failed to delete relation',
+    'no_relations_to_export': 'No relations to export',
     
     // Segmentation
     'run_segmentation': 'Segment Current Content',

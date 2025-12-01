@@ -7,13 +7,20 @@ const TextEditor = ({
   content, 
   onChange, 
   placeholder = t('enter_content'),
-  readOnly = false 
+  readOnly = false,
+  textareaRef
 }) => {
   const [text, setText] = useState(content || '');
 
   useEffect(() => {
     setText(content || '');
   }, [content]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.feather) {
+      window.feather.replace();
+    }
+  });
 
   const handleChange = (e) => {
     const newText = e.target.value;
@@ -50,6 +57,7 @@ const TextEditor = ({
       
       <div className="editor-textarea">
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}

@@ -9,14 +9,14 @@ const EntityAnnotator = ({
   content, 
   annotations = [], 
   onAddAnnotation,
-  onDeleteAnnotation 
+  onDeleteAnnotation,
+  textareaRef
 }) => {
   const [selectedLabel, setSelectedLabel] = useState('人物');
   const [selectedText, setSelectedText] = useState('');
   const [selectionStart, setSelectionStart] = useState(-1);
   const [selectionEnd, setSelectionEnd] = useState(-1);
   const [autoAnnotating, setAutoAnnotating] = useState(false);
-  const textareaRef = useRef(null);
 
   const entityLabels = [
     { value: '人物', label: t('person') },
@@ -27,17 +27,57 @@ const EntityAnnotator = ({
     { value: '其他', label: t('other') }
   ];
 
+  // 监听文本选择
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (!textareaRef || !textareaRef.current) return;
+
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      
+      if (start !== end) {
+        const selected = content.substring(start, end);
+        const trimmed = selected.trim();
+        if (trimmed) {
+          const trimStart = selected.indexOf(trimmed);
+          const actualStart = start + trimStart;
+          const actualEnd = actualStart + trimmed.length;
+          
+          setSelectedText(trimmed);
+          setSelectionStart(actualStart);
+          setSelectionEnd(actualEnd);
+        }
+      }
+    };
+
+    if (textareaRef && textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.addEventListener('mouseup', handleSelectionChange);
+      textarea.addEventListener('keyup', handleSelectionChange);
+
+      return () => {
+        textarea.removeEventListener('mouseup', handleSelectionChange);
+        textarea.removeEventListener('keyup', handleSelectionChange);
+      };
+    }
+  }, [textareaRef, content]);
+
   const handleTextSelect = () => {
     if (!textareaRef.current) return;
 
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
-    const selected = content.substring(start, end).trim();
+    const selected = content.substring(start, end);
+    const trimmed = selected.trim();
 
-    if (selected) {
-      setSelectedText(selected);
-      setSelectionStart(start);
-      setSelectionEnd(end);
+    if (trimmed) {
+      const trimStart = selected.indexOf(trimmed);
+      const actualStart = start + trimStart;
+      const actualEnd = actualStart + trimmed.length;
+      
+      setSelectedText(trimmed);
+      setSelectionStart(actualStart);
+      setSelectionEnd(actualEnd);
     }
   };
 
@@ -154,6 +194,13 @@ const EntityAnnotator = ({
             ))}
           </select>
         </div>
+
+        {selectedText && (
+          <div className="selected-text-info">
+            <label>已选中文本：</label>
+            <div className="selected-text-preview">"{selectedText}"</div>
+          </div>
+        )}
 
         <div className="control-buttons">
           <button
