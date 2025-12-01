@@ -8,11 +8,15 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 require('dotenv').config();
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 
 // 导入模型
 const UserModel = require('./models/UserModel');
 const ProjectModel = require('./models/ProjectModel');
 const DocumentModel = require('./models/DocumentModel');
+const AnnotationModel = require('./models/AnnotationModel');
 
 // 数据库初始化
 const { initDatabase, testConnection } = require('./config/database');
@@ -24,6 +28,54 @@ const PORT = process.env.PORT || 5002;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+function createProxyMiddleware(targetBase) {
+    const targetUrl = new URL(targetBase);
+    const mod = targetUrl.protocol === 'https:' ? https : http;
+    return async (req, res) => {
+        if (req.method === 'OPTIONS') {
+            res.status(204).end();
+            return;
+        }
+        const url = new URL(req.path || '/', targetUrl);
+        const options = {
+            method: req.method,
+            headers: {
+                ...req.headers,
+                host: targetUrl.host,
+                'accept-encoding': 'identity',
+                'connection': 'close'
+            }
+        };
+        const proxyReq = mod.request(url, options, (proxyRes) => {
+            const chunks = [];
+            proxyRes.on('data', (chunk) => chunks.push(chunk));
+            proxyRes.on('end', () => {
+                const buf = Buffer.concat(chunks);
+                res.status(proxyRes.statusCode || 500);
+                const ct = proxyRes.headers['content-type'] || 'application/json';
+                res.setHeader('content-type', ct);
+                res.send(buf);
+            });
+        });
+        proxyReq.on('error', (err) => {
+            console.error('Proxy error:', err.message);
+            res.status(502).json({ success: false, error: '网关错误' });
+        });
+        if (req.body && typeof req.body === 'object') {
+            const bodyStr = JSON.stringify(req.body);
+            proxyReq.setHeader('content-type', 'application/json');
+            proxyReq.setHeader('content-length', Buffer.byteLength(bodyStr));
+            proxyReq.write(bodyStr);
+        }
+        proxyReq.end();
+    };
+}
+
+const AI_TARGET = process.env.AI_API_BASE || 'http://localhost:5004';
+const SEG_TARGET = process.env.SEG_API_BASE || 'http://localhost:5001';
+app.use('/ai', createProxyMiddleware(AI_TARGET));
+app.use('/seg', createProxyMiddleware(SEG_TARGET));
 
 // 获取当前时间戳
 function getTimestamp() {
@@ -263,9 +315,8 @@ app.get('/api/projects', async (req, res) => {
     try {
         const userId = parseInt(req.query.userId);
         if (!userId) {
-            return res.status(400).json({ success: false, error: '缺少用户ID' });
+            return res.json({ success: true, projects: [] });
         }
-        
         const projects = await ProjectModel.findByUserId(userId);
         res.json({ success: true, projects });
     } catch (error) {
@@ -360,7 +411,7 @@ app.get('/api/documents', async (req, res) => {
         const projectId = req.query.projectId;
         
         if (!userId) {
-            return res.status(400).json({ success: false, error: '缺少用户ID' });
+            return res.json({ success: true, documents: [] });
         }
         
         const documents = await DocumentModel.findByUserId(userId, projectId);
@@ -431,6 +482,53 @@ app.put('/api/documents/:documentId', async (req, res) => {
         res.json({ success: true, document: updatedDocument });
     } catch (error) {
         console.error('更新文档错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ============ 文档标注 API ============
+
+// 获取文档的实体标注列表
+app.get('/api/documents/:documentId/annotations', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const annotations = await AnnotationModel.listEntities(documentId);
+        res.json({ success: true, annotations });
+    } catch (error) {
+        console.error('获取实体标注错误:', error);
+        res.json({ success: true, annotations: [] });
+    }
+});
+
+// 添加实体标注
+app.post('/api/documents/:documentId/annotations', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const { start, end, label, text } = req.body;
+
+        if (typeof start !== 'number' || typeof end !== 'number' || !label) {
+            return res.status(400).json({ success: false, error: '缺少必要参数' });
+        }
+
+        const entity = await AnnotationModel.addEntity(documentId, { start, end, label, text });
+        res.status(201).json({ success: true, annotation: entity });
+    } catch (error) {
+        console.error('添加实体标注错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 删除实体标注
+app.delete('/api/documents/:documentId/annotations/:annotationId', async (req, res) => {
+    try {
+        const { documentId, annotationId } = req.params;
+        const ok = await AnnotationModel.deleteEntity(documentId, parseInt(annotationId));
+        if (!ok) {
+            return res.status(404).json({ success: false, error: '标注不存在' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('删除实体标注错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });

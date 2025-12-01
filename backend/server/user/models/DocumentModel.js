@@ -48,7 +48,13 @@ class DocumentModel {
         allowedFields.forEach(field => {
             if (updates[field] !== undefined) {
                 setClauses.push(`${field} = ?`);
-                values.push(updates[field]);
+                let v = updates[field];
+                if ((field === 'entityAnnotations' || field === 'relationAnnotations')) {
+                    if (typeof v !== 'string') {
+                        v = JSON.stringify(v || []);
+                    }
+                }
+                values.push(v);
             }
         });
         

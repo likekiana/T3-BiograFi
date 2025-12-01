@@ -8,7 +8,33 @@ export const documentService = {
   async getDocuments(projectId = null) {
     try {
       const result = await api.document.getDocuments(projectId);
-      return result.documents || [];
+      const docs = result.documents || [];
+      const normalized = docs.map(d => ({
+        id: d.id,
+        userId: d.user_id ?? d.userId,
+        projectId: d.project_id ?? d.projectId,
+        name: d.name,
+        description: d.description || '',
+        content: d.content || '',
+        author: d.author || '',
+        entityAnnotations: Array.isArray(d.entityAnnotations)
+          ? d.entityAnnotations
+          : (typeof d.entityAnnotations === 'string'
+              ? (JSON.parse(d.entityAnnotations || '[]') || [])
+              : []),
+        relationAnnotations: Array.isArray(d.relationAnnotations)
+          ? d.relationAnnotations
+          : (typeof d.relationAnnotations === 'string'
+              ? (JSON.parse(d.relationAnnotations || '[]') || [])
+              : []),
+        createdAt: d.created_at ?? d.createdAt ?? '',
+        updatedAt: d.updated_at ?? d.updatedAt ?? ''
+      }));
+      const existing = JSON.parse(localStorage.getItem('appdata_documents_v1') || '[]');
+      const userId = JSON.parse(localStorage.getItem('currentUser') || '{}').id;
+      const others = existing.filter(x => x.userId !== userId);
+      localStorage.setItem('appdata_documents_v1', JSON.stringify([...others, ...normalized]));
+      return docs;
     } catch (error) {
       console.error('获取文档列表失败，使用本地存储:', error);
       return this.getDocumentsFromLocal(projectId);
@@ -21,7 +47,31 @@ export const documentService = {
   async createDocument(documentData) {
     try {
       const result = await api.document.createDocument(documentData);
-      return result.document;
+      const doc = result.document;
+      const normalized = {
+        id: doc.id,
+        userId: doc.user_id ?? doc.userId,
+        projectId: doc.project_id ?? doc.projectId,
+        name: doc.name,
+        description: doc.description || '',
+        content: doc.content || '',
+        author: doc.author || '',
+        entityAnnotations: Array.isArray(doc.entityAnnotations)
+          ? doc.entityAnnotations
+          : (typeof doc.entityAnnotations === 'string'
+              ? (JSON.parse(doc.entityAnnotations || '[]') || [])
+              : []),
+        relationAnnotations: Array.isArray(doc.relationAnnotations)
+          ? doc.relationAnnotations
+          : (typeof doc.relationAnnotations === 'string'
+              ? (JSON.parse(doc.relationAnnotations || '[]') || [])
+              : []),
+        createdAt: doc.created_at ?? doc.createdAt ?? '',
+        updatedAt: doc.updated_at ?? doc.updatedAt ?? ''
+      };
+      const existing = JSON.parse(localStorage.getItem('appdata_documents_v1') || '[]');
+      localStorage.setItem('appdata_documents_v1', JSON.stringify([...existing, normalized]));
+      return doc;
     } catch (error) {
       console.error('创建文档失败，使用本地存储:', error);
       return this.createDocumentLocal(documentData);
@@ -38,7 +88,37 @@ export const documentService = {
   async updateDocument(documentId, updates) {
     try {
       const result = await api.document.updateDocument(documentId, updates);
-      return result.document;
+      const doc = result.document;
+      const normalized = {
+        id: doc.id,
+        userId: doc.user_id ?? doc.userId,
+        projectId: doc.project_id ?? doc.projectId,
+        name: doc.name,
+        description: doc.description || '',
+        content: doc.content || '',
+        author: doc.author || '',
+        entityAnnotations: Array.isArray(doc.entityAnnotations)
+          ? doc.entityAnnotations
+          : (typeof doc.entityAnnotations === 'string'
+              ? (JSON.parse(doc.entityAnnotations || '[]') || [])
+              : []),
+        relationAnnotations: Array.isArray(doc.relationAnnotations)
+          ? doc.relationAnnotations
+          : (typeof doc.relationAnnotations === 'string'
+              ? (JSON.parse(doc.relationAnnotations || '[]') || [])
+              : []),
+        createdAt: doc.created_at ?? doc.createdAt ?? '',
+        updatedAt: doc.updated_at ?? doc.updatedAt ?? ''
+      };
+      const existing = JSON.parse(localStorage.getItem('appdata_documents_v1') || '[]');
+      const idx = existing.findIndex(x => x.id === documentId);
+      if (idx !== -1) {
+        existing[idx] = normalized;
+      } else {
+        existing.push(normalized);
+      }
+      localStorage.setItem('appdata_documents_v1', JSON.stringify(existing));
+      return doc;
     } catch (error) {
       console.error('更新文档失败，使用本地存储:', error);
       // 降级到本地存储
@@ -54,6 +134,9 @@ export const documentService = {
   async deleteDocument(documentId) {
     try {
       const result = await api.document.deleteDocument(documentId);
+      const existing = JSON.parse(localStorage.getItem('appdata_documents_v1') || '[]');
+      const filtered = existing.filter(x => x.id !== documentId);
+      localStorage.setItem('appdata_documents_v1', JSON.stringify(filtered));
       return result.success;
     } catch (error) {
       console.error('删除文档失败，使用本地存储:', error);
@@ -137,16 +220,22 @@ export const documentService = {
     
     if (end <= start) throw new Error('标注范围无效');
 
-    const normalized = {
+    const payload = {
       start,
       end,
-      label: annotation.label || '实体'
+      label: annotation.label || '实体',
+      text: (annotation.text || (doc.content || '').slice(start, end))
     };
-
-    const entityAnnotations = Array.isArray(doc.entityAnnotations) ? doc.entityAnnotations : [];
-    entityAnnotations.push(normalized);
-
-    return this.updateDocument(documentId, { entityAnnotations });
+    const result = await api.annotations.add(documentId, payload);
+    // 同步到本地缓存
+    const documents = await this.getDocumentsFromLocal(doc.projectId);
+    const idx = documents.findIndex(d => d.id === documentId);
+    if (idx !== -1) {
+      const list = Array.isArray(documents[idx].entityAnnotations) ? documents[idx].entityAnnotations : [];
+      documents[idx].entityAnnotations = [...list, result.annotation];
+      localStorage.setItem('appdata_documents_v1', JSON.stringify(documents));
+    }
+    return result.annotation;
   },
 
   async deleteEntityAnnotation(documentId, index) {
@@ -158,16 +247,34 @@ export const documentService = {
     if (index < 0 || index >= doc.entityAnnotations.length) {
       throw new Error('标注索引无效');
     }
-
-    const entityAnnotations = [...doc.entityAnnotations];
-    entityAnnotations.splice(index, 1);
-
-    return this.updateDocument(documentId, { entityAnnotations });
+    const ann = doc.entityAnnotations[index];
+    if (!ann || ann.id == null) {
+      throw new Error('标注缺少ID，无法删除');
+    }
+    await api.annotations.remove(documentId, ann.id);
+    // 同步本地
+    const documents = await this.getDocumentsFromLocal(doc.projectId);
+    const idx = documents.findIndex(d => d.id === documentId);
+    if (idx !== -1) {
+      const list = Array.isArray(documents[idx].entityAnnotations) ? documents[idx].entityAnnotations : [];
+      documents[idx].entityAnnotations = list.filter((_, i) => i !== index);
+      localStorage.setItem('appdata_documents_v1', JSON.stringify(documents));
+    }
+    return true;
   },
 
   async getEntityAnnotations(documentId) {
+    const server = await api.annotations.list(documentId);
     const doc = await this.getDocumentById(documentId);
-    return (doc && Array.isArray(doc.entityAnnotations)) ? doc.entityAnnotations : [];
+    if (doc) {
+      const documents = await this.getDocumentsFromLocal(doc.projectId);
+      const idx = documents.findIndex(d => d.id === documentId);
+      if (idx !== -1) {
+        documents[idx].entityAnnotations = server.annotations || [];
+        localStorage.setItem('appdata_documents_v1', JSON.stringify(documents));
+      }
+    }
+    return server.annotations || [];
   },
 
   // 本地存储方法
@@ -193,8 +300,16 @@ export const documentService = {
   },
 
   async getDocumentById(documentId) {
-    const documents = await this.getDocumentsFromLocal();
-    return documents.find(d => d.id === documentId);
+    let documents = await this.getDocumentsFromLocal();
+    let found = documents.find(d => d.id === documentId);
+    if (!found) {
+      try {
+        await this.getDocuments(null);
+        documents = await this.getDocumentsFromLocal();
+        found = documents.find(d => d.id === documentId);
+      } catch {}
+    }
+    return found || null;
   },
 
   async createDocumentLocal(documentData) {

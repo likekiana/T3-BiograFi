@@ -17,7 +17,8 @@
     "start": "vite",
     "build": "vite build",
     "test": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:services": "concurrently -n user,ai,seg -c green,blue,magenta \"node ..\\backend\\server\\user\\user-server.js\" \"python ..\\backend\\server\\AI\\ai.py\" \"python ..\\backend\\server\\seg\\seg_server.py\""
   },
   "eslintConfig": {
     "extends": [

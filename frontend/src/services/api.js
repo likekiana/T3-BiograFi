@@ -1,9 +1,9 @@
 // src/services/api.js
 // API 基础服务
 
-const USER_API_BASE = 'http://localhost:5002';
-const AI_API_BASE = 'http://localhost:5004';
-const SEG_API_BASE = 'http://localhost:5001';
+const USER_API_BASE = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
+const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || `${USER_API_BASE}/ai`;
+const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || `${USER_API_BASE}/seg`;
 
 /**
  * 通用 API 请求函数
@@ -238,4 +238,22 @@ export default {
   document: documentAPI,
   ai: aiAPI,
   segmentation: segmentationAPI,
+  annotations: {
+    async list(documentId) {
+      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations`, {
+        method: 'GET'
+      });
+    },
+    async add(documentId, body) {
+      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations`, {
+        method: 'POST',
+        body
+      });
+    },
+    async remove(documentId, annotationId) {
+      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations/${annotationId}`, {
+        method: 'DELETE'
+      });
+    }
+  }
 };
