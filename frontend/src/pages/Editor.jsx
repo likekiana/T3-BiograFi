@@ -5,6 +5,7 @@ import EntityAnnotator from '../components/editor/EntityAnnotator';
 import RelationAnnotator from '../components/editor/RelationAnnotator';
 import ClassicalAnalysis from '../components/editor/ClassicalAnalysis';
 import Segmentation from '../components/editor/Segmentation';
+import ResizableDivider from '../components/common/ResizableDivider';
 import { useDocuments } from '../hooks/useDocuments';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../utils/language';
@@ -27,6 +28,8 @@ const Editor = ({ document, project, onBack, onSave }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('entity');
   const [content, setContent] = useState('');
+  const [isNarrow, setIsNarrow] = useState(false);
+  const [documentName, setDocumentName] = useState('');
   const [author, setAuthor] = useState('');
   const [annotations, setAnnotations] = useState([]);
   const [relationAnnotations, setRelationAnnotations] = useState([]);
@@ -52,10 +55,32 @@ const Editor = ({ document, project, onBack, onSave }) => {
 
   const navigate = useNavigate();
 
+  const { leftWidth, dividerProps } = ResizableDivider({ 
+    leftMinWidth: 300, 
+    rightMinWidth: 300,
+    defaultLeftWidth: 50 
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      setIsNarrow(window.innerWidth <= 1024);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   // 初始化文档数据
   useEffect(() => {
     if (document) {
       setContent(document.content || '');
+      setDocumentName(document.name || '');
       setAuthor(document.author || '');
       
       // 加载实体/关系标注
@@ -65,30 +90,37 @@ const Editor = ({ document, project, onBack, onSave }) => {
   }, [document]);
 
   // 防抖保存
-  const debouncedSave = debounce(async (newContent, newAuthor) => {
-    await performSave(newContent, newAuthor);
+  const debouncedSave = debounce(async (newContent, newDocName, newAuthor) => {
+    await performSave(newContent, newDocName, newAuthor);
   }, 1000);
 
   // 内容变化处理
   const handleContentChange = (newContent) => {
     setContent(newContent);
     setSaveStatus('saving');
-    debouncedSave(newContent, author);
+    debouncedSave(newContent, documentName, author);
+  };
+
+  const handleDocumentNameChange = (newDocName) => {
+    setDocumentName(newDocName);
+    setSaveStatus('saving');
+    debouncedSave(content, newDocName, author);
   };
 
   const handleAuthorChange = (newAuthor) => {
     setAuthor(newAuthor);
     setSaveStatus('saving');
-    debouncedSave(content, newAuthor);
+    debouncedSave(content, documentName, newAuthor);
   };
 
   // 执行保存
-  const performSave = async (saveContent, saveAuthor) => {
+  const performSave = async (saveContent, saveDocName, saveAuthor) => {
     if (!document) return;
 
     try {
       await updateDocument(document.id, {
         content: saveContent,
+        name: saveDocName,
         author: saveAuthor
       });
       setSaveStatus('saved');
@@ -107,7 +139,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
   // 手动保存
   const handleManualSave = async () => {
     setSaveStatus('saving');
-    await performSave(content, author);
+    await performSave(content, documentName, author);
     if (onSave) {
       onSave();
     }
@@ -278,17 +310,145 @@ const Editor = ({ document, project, onBack, onSave }) => {
       return;
     }
 
-    const processed = content.split('\n').map(line => {
+    // 括号配对映射
+    const openBrackets = {
+      '(': ')',
+      '（': '）',
+      '[': ']',
+      '【': '】',
+      '"': '"',
+      '"': '"',
+      "'": "'",
+      '\u2018': '\u2019'
+    };
+    const closeBrackets = {};
+    Object.entries(openBrackets).forEach(([open, close]) => {
+      closeBrackets[close] = open;
+    });
+
+    // 检查括号是否配对
+    const checkBrackets = (text) => {
+      const stack = [];
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (openBrackets[char]) {
+          stack.push(char);
+        } else if (closeBrackets[char]) {
+          const lastOpen = stack[stack.length - 1];
+          if (lastOpen && openBrackets[lastOpen] === char) {
+            stack.pop();
+          } else {
+            // 不匹配的闭合括号，可能是多余的，不处理
+            // 或者需要补全开始括号（这种情况较少，暂不处理）
+          }
+        }
+      }
+      if (stack.length > 0) {
+        // 有未闭合的开始括号，返回需要补全的闭合括号
+        return { needsClosing: true, missingBracket: openBrackets[stack[stack.length - 1]] };
+      }
+      return { needsClosing: false, missingBracket: null };
+    };
+
+    // 判断应该添加句号还是逗号
+    const determinePunctuation = (text, isLastLine) => {
+      // 如果已经有句号、问号、感叹号等结束标点，不添加
+      if (/[。！？!?；;]$/.test(text)) {
+        return '';
+      }
+
+      // 如果以逗号结尾，不添加（保持原样）
+      if (/[,，]$/.test(text)) {
+        return '';
+      }
+
+      // 判断句子特征
+      const trimmed = text.trim();
+      const length = trimmed.length;
+
+      // 常见的句末语气词，通常用句号
+      const sentenceEnders = /[也矣乎哉焉耳欤]$/;
+      if (sentenceEnders.test(trimmed)) {
+        return '。';
+      }
+
+      // 如果句子中有逗号，说明是句子中间，末尾应该用句号
+      if (trimmed.includes('，') || trimmed.includes(',')) {
+        return '。';
+      }
+
+      // 如果句子较短（少于8个字符），通常是完整短句，用句号
+      if (length < 8) {
+        return '。';
+      }
+
+      // 如果句子较长（20个字符以上）且没有逗号，需要判断是否应该用逗号
+      if (length >= 20) {
+        // 检查是否有明显的并列结构或连接词（如"而"、"且"、"又"、"亦"等）
+        const conjunctionPattern = /[而且又或及与亦乃则]/;
+        // 检查句子后半部分是否有连接词
+        const lastHalf = trimmed.slice(Math.floor(length / 2));
+        if (conjunctionPattern.test(lastHalf) && !isLastLine) {
+          // 如果有连接词且不是最后一行，可能用逗号表示未完
+          return '，';
+        }
+        // 检查是否有明显的停顿词（如"曰"、"云"、"谓"等）
+        const pausePattern = /[曰云谓道]/;
+        if (pausePattern.test(trimmed) && !isLastLine) {
+          // 如果有停顿词，可能在后面用逗号
+          const pauseIndex = trimmed.search(pausePattern);
+          if (pauseIndex > 0 && pauseIndex < length - 5) {
+            return '，';
+          }
+        }
+        // 否则用句号
+        return '。';
+      }
+
+      // 中等长度句子（10-19字符），根据上下文判断
+      if (length >= 10 && length < 20) {
+        // 检查是否有连接词
+        const conjunctionPattern = /[而且又或及与]/;
+        if (conjunctionPattern.test(trimmed) && !isLastLine) {
+          // 如果句子中间有连接词，可能在末尾用逗号
+          const conjunctionIndex = trimmed.search(conjunctionPattern);
+          if (conjunctionIndex > 2 && conjunctionIndex < length - 3) {
+            return '，';
+          }
+        }
+        return '。';
+      }
+
+      // 默认情况：用句号
+      return '。';
+    };
+
+    const lines = content.split('\n');
+    const processed = lines.map((line, index) => {
       const leading = line.match(/^\s*/)?.[0] || '';
       const trailing = line.match(/\s*$/)?.[0] || '';
       const body = line.trim();
+      
       if (!body) {
         return line;
       }
-      if (/[。！？!?；;:,，、）)】】]$/.test(body)) {
-        return line;
+
+      // 检查括号配对
+      const bracketStatus = checkBrackets(body);
+      if (bracketStatus.needsClosing) {
+        const punctuation = bracketStatus.missingBracket;
+        return `${leading}${body}${punctuation}${trailing}`;
       }
-      return `${leading}${body}。${trailing}`;
+
+      // 判断标点
+      const isLastLine = index === lines.length - 1;
+      const punctuation = determinePunctuation(body, isLastLine);
+      
+      if (punctuation) {
+        return `${leading}${body}${punctuation}${trailing}`;
+      }
+
+      return line;
     }).join('\n');
 
     handleContentChange(processed);
@@ -298,6 +458,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
   const toggleSegmentationPanel = () => {
     setShowSegmentationPanel(prev => !prev);
   };
+
 
   const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -768,7 +929,10 @@ const Editor = ({ document, project, onBack, onSave }) => {
       </div>
 
       <div className="editor-content">
-        <div className="editor-main">
+        <div
+          className="editor-main"
+          style={isNarrow ? undefined : { width: `${leftWidth}%` }}
+        >
           <div className="editor-section">
             <TextEditor
               content={content}
@@ -878,55 +1042,62 @@ const Editor = ({ document, project, onBack, onSave }) => {
           </div>
         </div>
 
-        <div className="editor-sidebar">
+        {!isNarrow && (
+          <div {...dividerProps}>
+            <div className="divider-handle"></div>
+          </div>
+        )}
+
+        <div
+          className="editor-sidebar"
+          style={isNarrow ? undefined : { width: `${100 - leftWidth}%` }}
+        >
           <div className="sidebar-section document-info">
-            <h3>{t('document_name')}</h3>
-            <div className="info-item">
-              <label>文档名称:</label>
-              <span>{document.name}</span>
-            </div>
-            <div className="info-item">
-              <label>{t('author')}</label>
-              <input
-                type="text"
-                value={author}
-                onChange={(e) => handleAuthorChange(e.target.value)}
-                placeholder={t('enter_author')}
-              />
-            </div>
-            <div className="info-item">
-              <label>{t('created_at')}</label>
-              <span>{document.createdAt}</span>
-            </div>
-            
-            <div className="save-section">
+            <div className="document-info-compact">
+              <div className="info-group">
+                <label>文档:</label>
+                <input
+                  type="text"
+                  value={documentName}
+                  onChange={(e) => handleDocumentNameChange(e.target.value)}
+                  placeholder="请输入文档名称"
+                  className="author-input-compact"
+                />
+              </div>
+              <div className="info-group">
+                <label>作者:</label>
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => handleAuthorChange(e.target.value)}
+                  placeholder={t('enter_author')}
+                  className="author-input-compact"
+                />
+              </div>
               <button 
-                className="action-btn primary save-btn"
+                className="action-btn primary save-btn-compact"
                 onClick={handleManualSave}
                 disabled={saveStatus === 'saving'}
+                title={saveStatus === 'saving' ? '保存中...' : '保存文档'}
               >
                 <i data-feather="save"></i>
-                {saveStatus === 'saving' ? '保存中...' : t('save')}
+                {saveStatus === 'saving' ? '保存中' : t('save')}
               </button>
-              
-              {saveStatus === 'saved' && (
-                <div className="save-status success">
-                  <i data-feather="check"></i>
-                  <span>已保存 {lastSaved}</span>
-                </div>
-              )}
-              
-              {saveStatus === 'error' && (
-                <div className="save-status error">
-                  <i data-feather="alert-circle"></i>
-                  <span>保存失败</span>
-                </div>
-              )}
-              
-              <div className="shortcut-hint">
-                {t('shortcut_key')}
-              </div>
             </div>
+            
+            {saveStatus === 'saved' && (
+              <div className="save-status success">
+                <i data-feather="check"></i>
+                <span>已保存 {lastSaved}</span>
+              </div>
+            )}
+            
+            {saveStatus === 'error' && (
+              <div className="save-status error">
+                <i data-feather="alert-circle"></i>
+                <span>保存失败</span>
+              </div>
+            )}
           </div>
 
           <div className="sidebar-section">

@@ -14,7 +14,8 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
     createDocument, 
     importDocuments,
     exportDocuments,
-    searchDocuments 
+    searchDocuments,
+    refresh
   } = useDocuments(project?.id);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +32,10 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
       setFilteredDocuments(documents);
     }
   }, [searchQuery, documents, searchDocuments]);
+
+  const handleDocumentsChange = async () => {
+    await refresh();
+  };
 
   const handleCreateDocument = async (documentData) => {
     try {
@@ -233,6 +238,8 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
               exportMode={exportMode}
               isSelected={selectedDocs.has(document.id)}
               onToggleSelect={() => toggleSelectDoc(document.id)}
+              projectId={project.id}
+              onDocumentsChange={handleDocumentsChange}
             />
           ))
         )}

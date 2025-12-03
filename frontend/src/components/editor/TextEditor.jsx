@@ -1,5 +1,5 @@
-// src/components/editor/TextEditor.js - 确保没有 document 事件监听
-import React, { useState, useEffect } from 'react';
+// src/components/editor/TextEditor.js - 使用 contentEditable 支持富文本显示
+import React, { useState, useEffect, useRef } from 'react';
 import { t } from '../../utils/language';
 import '../../styles/components/TextEditor.css';
 
@@ -11,9 +11,19 @@ const TextEditor = ({
   textareaRef
 }) => {
   const [text, setText] = useState(content || '');
+  const editorRef = useRef(null);
 
   useEffect(() => {
-    setText(content || '');
+    const newContent = content || '';
+    setText(newContent);
+    // 同步更新 contentEditable div 的内容
+    if (editorRef.current) {
+      const currentHTML = editorRef.current.innerHTML;
+      // 只有当内容真的不同时才更新，避免光标位置丢失
+      if (currentHTML !== newContent && document.activeElement !== editorRef.current) {
+        editorRef.current.innerHTML = newContent;
+      }
+    }
   }, [content]);
 
   useEffect(() => {
@@ -22,8 +32,8 @@ const TextEditor = ({
     }
   });
 
-  const handleChange = (e) => {
-    const newText = e.target.value;
+  const handleInput = (e) => {
+    const newText = e.currentTarget.innerHTML;
     setText(newText);
     if (onChange) {
       onChange(newText);
@@ -39,74 +49,78 @@ const TextEditor = ({
   };
 
   const applyFormat = (formatType) => {
-    if (!textareaRef || !textareaRef.current) return;
-
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (start === end) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
       alert('请先选择要格式化的文本');
       return;
     }
 
-    const selectedText = text.substring(start, end);
-    let formattedText = '';
-
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    
+    let wrapper;
     switch (formatType) {
       case 'bold':
-        formattedText = `<b>${selectedText}</b>`;
+        wrapper = document.createElement('b');
         break;
       case 'italic':
-        formattedText = `<i>${selectedText}</i>`;
+        wrapper = document.createElement('i');
         break;
       case 'underline':
-        formattedText = `<u>${selectedText}</u>`;
+        wrapper = document.createElement('u');
         break;
       default:
         return;
     }
 
-    const newText = text.substring(0, start) + formattedText + text.substring(end);
-    setText(newText);
-    if (onChange) {
-      onChange(newText);
+    try {
+      range.surroundContents(wrapper);
+      selection.removeAllRanges();
+      
+      // 触发内容更新
+      if (editorRef.current) {
+        const newText = editorRef.current.innerHTML;
+        setText(newText);
+        if (onChange) {
+          onChange(newText);
+        }
+      }
+    } catch (error) {
+      // 如果选择跨越了多个节点，使用替代方法
+      const fragment = range.extractContents();
+      wrapper.appendChild(fragment);
+      range.insertNode(wrapper);
+      
+      if (editorRef.current) {
+        const newText = editorRef.current.innerHTML;
+        setText(newText);
+        if (onChange) {
+          onChange(newText);
+        }
+      }
     }
-
-    // 重新设置光标位置
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start, start + formattedText.length);
-    }, 0);
   };
 
   const clearFormat = () => {
-    if (!textareaRef || !textareaRef.current) return;
-
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (start === end) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
       alert('请先选择要清除格式的文本');
       return;
     }
 
-    const selectedText = text.substring(start, end);
-    // 移除所有 HTML 标签
-    const cleanText = selectedText.replace(/<\/?[^>]+(>|$)/g, '');
-
-    const newText = text.substring(0, start) + cleanText + text.substring(end);
-    setText(newText);
-    if (onChange) {
-      onChange(newText);
+    const range = selection.getRangeAt(0);
+    const fragment = range.extractContents();
+    const textContent = fragment.textContent;
+    const textNode = document.createTextNode(textContent);
+    range.insertNode(textNode);
+    
+    if (editorRef.current) {
+      const newText = editorRef.current.innerHTML;
+      setText(newText);
+      if (onChange) {
+        onChange(newText);
+      }
     }
-
-    // 重新设置光标位置
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start, start + cleanText.length);
-    }, 0);
   };
 
   return (
@@ -127,14 +141,23 @@ const TextEditor = ({
       </div>
       
       <div className="editor-textarea">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={handleChange}
+        <div
+          ref={(el) => {
+            editorRef.current = el;
+            if (textareaRef) {
+              textareaRef.current = el;
+            }
+            // 初始化内容
+            if (el && !el.innerHTML) {
+              el.innerHTML = text;
+            }
+          }}
+          contentEditable={!readOnly}
+          onInput={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          readOnly={readOnly}
-          className="editor-text-input"
+          className="editor-text-input contenteditable"
+          suppressContentEditableWarning={true}
+          data-placeholder={placeholder}
         />
       </div>
     </div>

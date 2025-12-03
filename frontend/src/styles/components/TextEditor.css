@@ -71,6 +71,21 @@
   background-color: #ffffff;
 }
 
+/* contentEditable 特定样式 */
+.editor-text-input.contenteditable {
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* contentEditable placeholder 支持 */
+.editor-text-input.contenteditable:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  font-style: italic;
+  pointer-events: none;
+}
+
 .editor-text-input:focus {
   box-shadow: inset 0 0 0 2px #3b82f6;
 }
@@ -84,6 +99,21 @@
   background-color: #f9fafb;
   color: #6b7280;
   cursor: not-allowed;
+}
+
+/* HTML 标签样式 - 粗体、斜体、下划线 */
+.editor-text-input b,
+.editor-text-input strong {
+  font-weight: bold;
+}
+
+.editor-text-input i,
+.editor-text-input em {
+  font-style: italic;
+}
+
+.editor-text-input u {
+  text-decoration: underline;
 }
 
 /* 代码高亮样式（基础） */

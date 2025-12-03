@@ -179,7 +179,24 @@ export const formatFileSize = (bytes) => {
  * @param {File} file - 要读取的文件
  * @returns {Promise<string>} 文件内容
  */
-export const readFileAsText = (file) => {
+export const readFileAsText = async (file) => {
+  const fileName = file.name.toLowerCase();
+  
+  // 处理docx文件
+  if (fileName.endsWith('.docx')) {
+    try {
+      const mammoth = await import('mammoth');
+      const mammothModule = mammoth.default || mammoth;
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammothModule.extractRawText({ arrayBuffer });
+      return result.value;
+    } catch (error) {
+      console.error('读取docx文件失败:', error);
+      throw new Error('无法读取docx文件: ' + error.message);
+    }
+  }
+  
+  // 处理txt、md等文本文件
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);

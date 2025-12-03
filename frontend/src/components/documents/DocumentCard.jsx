@@ -5,14 +5,44 @@ import { t } from '../../utils/language';
 import Modal from '../common/Modal';
 import '../../styles/components/DocumentCard.css';
 
+// 格式化时间为中文友好格式
+const formatDateTime = (dateString) => {
+  if (!dateString) return '未知';
+  
+  try {
+    // 数据库返回的时间字符串（如 "2024-12-03 12:00:00"）直接作为本地时间处理
+    let date;
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
+      // MySQL datetime 格式，转换为本地时间（不添加Z后缀）
+      date = new Date(dateString.replace(' ', 'T'));
+    } else {
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return '未知';
+    
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+  } catch (error) {
+    return '未知';
+  }
+};
+
 const DocumentCard = ({ 
   document, 
   onOpen, 
   exportMode = false, 
   isSelected = false, 
-  onToggleSelect 
+  onToggleSelect,
+  projectId,
+  onDocumentsChange
 }) => {
-  const { updateDocument, deleteDocument } = useDocuments();
+  const { updateDocument, deleteDocument, createDocument } = useDocuments();
   const [showDetails, setShowDetails] = useState(false);
   const [showCopyForm, setShowCopyForm] = useState(false);
   const [editData, setEditData] = useState({
@@ -25,6 +55,9 @@ const DocumentCard = ({
     try {
       await updateDocument(document.id, editData);
       setShowDetails(false);
+      if (onDocumentsChange) {
+        await onDocumentsChange();
+      }
     } catch (error) {
       console.error('更新文档失败:', error);
     }
@@ -32,13 +65,26 @@ const DocumentCard = ({
 
   const handleCopy = async () => {
     try {
-      await updateDocument(document.id, {
+      const baseData = {
+        projectId: projectId || document.projectId,
         name: copyName,
         description: document.description,
         content: document.content,
         author: document.author
-      });
+      };
+
+      const newDocument = await createDocument(baseData);
+
+      if (document.entityAnnotations || document.relationAnnotations) {
+        await updateDocument(newDocument.id, {
+          entityAnnotations: document.entityAnnotations || [],
+          relationAnnotations: document.relationAnnotations || []
+        });
+      }
       setShowCopyForm(false);
+      if (onDocumentsChange) {
+        await onDocumentsChange();
+      }
     } catch (error) {
       console.error('复制文档失败:', error);
     }
@@ -48,6 +94,9 @@ const DocumentCard = ({
     if (window.confirm(t('confirm_delete_document'))) {
       try {
         await deleteDocument(document.id);
+        if (onDocumentsChange) {
+          await onDocumentsChange();
+        }
       } catch (error) {
         console.error('删除文档失败:', error);
       }
@@ -130,11 +179,11 @@ const DocumentCard = ({
           </div>
           <div className="form-group">
             <label>{t('created_at')}</label>
-            <input type="text" value={document.createdAt} readOnly />
+            <input type="text" value={formatDateTime(document.createdAt || document.created_at)} readOnly />
           </div>
           <div className="form-group">
             <label>{t('update_time')}</label>
-            <input type="text" value={document.updatedAt || document.createdAt} readOnly />
+            <input type="text" value={formatDateTime(document.updatedAt || document.updated_at || document.createdAt || document.created_at)} readOnly />
           </div>
         </div>
       </Modal>

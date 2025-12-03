@@ -159,8 +159,8 @@
 }
 
 .editor-content {
-  display: grid;
-  grid-template-columns: 1fr 320px;
+  display: flex;
+  flex-direction: row;
   gap: 0;
   background: white;
   border: 2px solid #d1d5db;
@@ -172,7 +172,7 @@
 
 .editor-main {
   padding: 0;
-  border-right: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .editor-section {
@@ -360,6 +360,8 @@
   flex-direction: column;
   gap: 0;
   background: #f9fafb;
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .sidebar-section {
@@ -384,6 +386,95 @@
 /* 文档信息 */
 .document-info {
   background: white;
+}
+
+/* 紧凑布局 */
+.document-info-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.info-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+}
+
+.info-group:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.info-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.author-input-compact {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  transition: all 0.2s;
+  width: 120px;
+}
+
+.document-info-compact .info-group:first-child .author-input-compact {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.author-input-compact:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.author-input-compact::placeholder {
+  color: #9ca3af;
+}
+
+.save-btn-compact {
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.save-btn-compact:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.save-btn-compact:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.save-btn-compact i {
+  width: 16px;
+  height: 16px;
 }
 
 .info-item {
@@ -471,10 +562,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
 }
 
 .save-status.success {
@@ -492,14 +583,6 @@
 .save-status i {
   width: 12px;
   height: 12px;
-}
-
-.shortcut-hint {
-  font-size: 11px;
-  color: #9ca3af;
-  text-align: center;
-  margin-top: 8px;
-  font-style: italic;
 }
 
 /* 编辑器错误状态 */
@@ -535,7 +618,7 @@
   }
   
   .editor-content {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
   
   .editor-main {
