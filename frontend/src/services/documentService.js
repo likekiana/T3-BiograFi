@@ -158,19 +158,57 @@ export const documentService = {
    * @param {string} documentId - 文档 ID
    * @returns {Promise<boolean>} 是否删除成功
    */
-  async deleteDocument(documentId) {
-    try {
-      const result = await api.document.deleteDocument(documentId);
-      const existing = JSON.parse(localStorage.getItem('appdata_documents_v1') || '[]');
-      const filtered = existing.filter(x => x.id !== documentId);
-      localStorage.setItem('appdata_documents_v1', JSON.stringify(filtered));
-      return result.success;
-    } catch (error) {
-      console.error('删除文档失败，使用本地存储:', error);
-      // 降级到本地存储
-      return this.deleteDocumentLocal(documentId);
+  // documentService.js
+async deleteEntityAnnotation(documentId, indexOrAnnotation) {
+  const doc = await this.getDocumentById(documentId);
+  if (!doc || !Array.isArray(doc.entityAnnotations)) {
+    throw new Error('文档或标注未找到');
+  }
+
+  let index;
+  // 判断传递的是索引还是标注对象
+  if (typeof indexOrAnnotation === 'number') {
+    index = indexOrAnnotation;
+  } else if (typeof indexOrAnnotation === 'object') {
+    // 如果是标注对象，查找索引
+    const annotation = indexOrAnnotation;
+    index = doc.entityAnnotations.findIndex(ann => 
+      ann.id === annotation.id || 
+      (ann.start === annotation.start && 
+       ann.end === annotation.end && 
+       ann.label === annotation.label &&
+       ann.text === annotation.text)
+    );
+    
+    if (index === -1) {
+      throw new Error('标注未找到');
     }
-  },
+  } else {
+    throw new Error('无效的标注参数');
+  }
+
+  if (index < 0 || index >= doc.entityAnnotations.length) {
+    throw new Error(`标注索引无效: ${index}，共有${doc.entityAnnotations.length}个标注`);
+  }
+  
+  const ann = doc.entityAnnotations[index];
+  if (!ann || ann.id == null) {
+    throw new Error('标注缺少ID，无法删除');
+  }
+  
+  await api.annotations.remove(documentId, ann.id);
+  
+  // 同步本地
+  const documents = await this.getDocumentsFromLocal(doc.projectId);
+  const docIndex = documents.findIndex(d => d.id === documentId);
+  if (docIndex !== -1) {
+    const list = Array.isArray(documents[docIndex].entityAnnotations) ? documents[docIndex].entityAnnotations : [];
+    documents[docIndex].entityAnnotations = list.filter((_, i) => i !== index);
+    localStorage.setItem('appdata_documents_v1', JSON.stringify(documents));
+  }
+  
+  return true;
+},
 
   /**
    * 导入文档

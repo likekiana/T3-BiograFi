@@ -119,9 +119,10 @@ export const useDocuments = (projectId = null) => {
     }
   }, []);
 
-  const deleteEntityAnnotation = useCallback(async (documentId, index) => {
+  // 删除实体标注 - 支持索引或标注对象参数
+  const deleteEntityAnnotation = useCallback(async (documentId, indexOrAnnotation) => {
     try {
-      return await documentService.deleteEntityAnnotation(documentId, index);
+      return await documentService.deleteEntityAnnotation(documentId, indexOrAnnotation);
     } catch (err) {
       setError(err.message);
       throw err;
@@ -165,7 +166,7 @@ export const useDocuments = (projectId = null) => {
     }
   }, []);
 
-return {
+  return {
     documents,
     loading,
     error,

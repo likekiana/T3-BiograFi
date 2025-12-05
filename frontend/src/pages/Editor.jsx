@@ -4,7 +4,7 @@ import TextEditor from '../components/editor/TextEditor';
 import EntityAnnotator from '../components/editor/EntityAnnotator';
 import RelationAnnotator from '../components/editor/RelationAnnotator';
 import ClassicalAnalysis from '../components/editor/ClassicalAnalysis';
-import Segmentation from '../components/editor/Segmentation';
+import Segmentation from '../components/editor/Segmentation'; // 导入内联分词组件
 import ResizableDivider from '../components/common/ResizableDivider';
 import { useDocuments } from '../hooks/useDocuments';
 import { useAuth } from '../hooks/useAuth';
@@ -51,15 +51,30 @@ const Editor = ({ document, project, onBack, onSave }) => {
   const [toolbarHint, setToolbarHint] = useState('');
   const hintTimerRef = useRef(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showSegmentationPanel, setShowSegmentationPanel] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
 
   const navigate = useNavigate();
+  const featherRendered = useRef(false);
 
-  const { leftWidth, dividerProps } = ResizableDivider({ 
-    leftMinWidth: 300, 
+  const { leftWidth, dividerProps } = ResizableDivider({
+    leftMinWidth: 300,
     rightMinWidth: 300,
-    defaultLeftWidth: 50 
+    defaultLeftWidth: 50
   });
+
+  // 修复函数声明位置
+  const getEditorPlaceholder = (activeTab) => {
+    switch (activeTab) {
+      case 'entity':
+        return t('enter_entity_content');
+      case 'relation':
+        return t('enter_entity_content');
+      case 'analysis':
+        return t('enter_analysis_content');
+      default:
+        return t('enter_content');
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -82,7 +97,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
       setContent(document.content || '');
       setDocumentName(document.name || '');
       setAuthor(document.author || '');
-      
+
       // 加载实体/关系标注
       loadEntityAnnotations();
       loadRelationAnnotations();
@@ -125,7 +140,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
       });
       setSaveStatus('saved');
       setLastSaved(new Date().toLocaleTimeString());
-      
+
       // 3秒后清除保存状态
       setTimeout(() => {
         setSaveStatus('');
@@ -147,7 +162,10 @@ const Editor = ({ document, project, onBack, onSave }) => {
 
   const getSelectionRange = () => {
     if (!textareaRef.current) return null;
-    const { selectionStart, selectionEnd } = textareaRef.current;
+    const textareaElement = textareaRef.current;
+    // 确保是DOM元素且有setSelectionRange方法
+    if (textareaElement.nodeType !== 1 || typeof textareaElement.setSelectionRange !== 'function') return null;
+    const { selectionStart, selectionEnd } = textareaElement;
     return {
       start: selectionStart,
       end: selectionEnd,
@@ -156,7 +174,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
   };
 
   const focusTextarea = () => {
-    if (textareaRef.current) {
+    if (textareaRef.current && textareaRef.current.nodeType === 1 && typeof textareaRef.current.focus === 'function') {
       textareaRef.current.focus();
     }
   };
@@ -190,7 +208,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
     handleContentChange(newValue);
 
     requestAnimationFrame(() => {
-      if (textareaRef.current) {
+      if (textareaRef.current &&
+        textareaRef.current.nodeType === 1 &&
+        typeof textareaRef.current.setSelectionRange === 'function') {
         const cursor = range.start + text.length;
         textareaRef.current.setSelectionRange(cursor, cursor);
       }
@@ -243,7 +263,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
       const newValue = `${content.slice(0, range.start)}${content.slice(range.end)}`;
       handleContentChange(newValue);
       requestAnimationFrame(() => {
-        if (textareaRef.current) {
+        if (textareaRef.current &&
+          textareaRef.current.nodeType === 1 &&
+          typeof textareaRef.current.setSelectionRange === 'function') {
           textareaRef.current.setSelectionRange(range.start, range.start);
         }
       });
@@ -275,7 +297,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
 
   const handleSelectAll = () => {
     focusTextarea();
-    if (textareaRef.current) {
+    if (textareaRef.current &&
+      textareaRef.current.nodeType === 1 &&
+      typeof textareaRef.current.select === 'function') {
       textareaRef.current.select();
       setTemporaryHint('已选中文档全部内容');
     }
@@ -297,7 +321,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
     const newValue = `${content.slice(0, range.start)}${content.slice(range.end)}`;
     handleContentChange(newValue);
     requestAnimationFrame(() => {
-      if (textareaRef.current) {
+      if (textareaRef.current &&
+        textareaRef.current.nodeType === 1 &&
+        typeof textareaRef.current.setSelectionRange === 'function') {
         textareaRef.current.setSelectionRange(range.start, range.start);
       }
     });
@@ -428,7 +454,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
       const leading = line.match(/^\s*/)?.[0] || '';
       const trailing = line.match(/\s*$/)?.[0] || '';
       const body = line.trim();
-      
+
       if (!body) {
         return line;
       }
@@ -443,7 +469,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
       // 判断标点
       const isLastLine = index === lines.length - 1;
       const punctuation = determinePunctuation(body, isLastLine);
-      
+
       if (punctuation) {
         return `${leading}${body}${punctuation}${trailing}`;
       }
@@ -455,10 +481,16 @@ const Editor = ({ document, project, onBack, onSave }) => {
     setTemporaryHint('已自动补全标点');
   };
 
-  const toggleSegmentationPanel = () => {
-    setShowSegmentationPanel(prev => !prev);
-  };
+  // AI分词功能
+  const handleAISegmentation = () => {
+    if (!content || !content.trim()) {
+      alert('请输入要分词的文本');
+      return;
+    }
 
+    // 这里将调用分词服务并更新编辑器内容
+    setTemporaryHint('正在执行AI分词...');
+  };
 
   const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -474,7 +506,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
     let searchAreaStart = 0;
     let searchAreaEnd = baseText.length;
 
-    if (findOptions.selectionOnly && textareaRef.current) {
+    if (findOptions.selectionOnly && textareaRef.current && textareaRef.current.nodeType === 1) {
       const { selectionStart, selectionEnd } = textareaRef.current;
       if (selectionEnd > selectionStart) {
         searchAreaStart = selectionStart;
@@ -515,10 +547,24 @@ const Editor = ({ document, project, onBack, onSave }) => {
 
   const focusMatch = (match) => {
     if (!textareaRef.current || !match) return;
-    focusTextarea();
-    textareaRef.current.setSelectionRange(match.start, match.end);
-  };
 
+    const textEditor = textareaRef.current;
+    if (typeof textEditor.setSelectionRange === 'function') {
+      textEditor.setSelectionRange(match.start, match.end);
+
+      // 滚动到匹配位置
+      setTimeout(() => {
+        const element = document.querySelector('.find-current-highlight');
+        if (element) {
+          element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          });
+        }
+      }, 50);
+    }
+  };
   const handleFind = (direction = 'next') => {
     const matches = computeMatchPositions();
     setMatchPositions(matches);
@@ -558,7 +604,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
     const newValue = `${content.slice(0, targetMatch.start)}${replaceTerm}${content.slice(targetMatch.end)}`;
     handleContentChange(newValue);
     setTimeout(() => {
-      if (textareaRef.current) {
+      if (textareaRef.current &&
+        textareaRef.current.nodeType === 1 &&
+        typeof textareaRef.current.setSelectionRange === 'function') {
         const cursorEnd = targetMatch.start + replaceTerm.length;
         textareaRef.current.setSelectionRange(targetMatch.start, cursorEnd);
       }
@@ -610,7 +658,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
   // 加载实体标注
   const loadEntityAnnotations = async () => {
     if (!document) return;
-    
+
     try {
       const entityAnnotations = await getEntityAnnotations(document.id);
       setAnnotations(entityAnnotations);
@@ -643,15 +691,59 @@ const Editor = ({ document, project, onBack, onSave }) => {
     }
   };
 
-  // 删除实体标注
-  const handleDeleteAnnotation = async (index) => {
+  // 删除实体标注 - 修改为根据标注对象查找索引
+  const handleDeleteAnnotation = async (annotation) => {
     if (!document) return;
 
     try {
-      await deleteEntityAnnotation(document.id, index);
+      // 查找标注的索引
+      const currentAnnotations = annotations || [];
+      const annotationIndex = currentAnnotations.findIndex(ann =>
+        ann.id === annotation.id ||
+        (ann.start === annotation.start &&
+          ann.end === annotation.end &&
+          ann.label === annotation.label &&
+          ann.text === annotation.text)
+      );
+
+      if (annotationIndex === -1) {
+        console.warn('未找到要删除的标注:', annotation);
+        return;
+      }
+
+      await deleteEntityAnnotation(document.id, annotationIndex);
       await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     } catch (error) {
       console.error('删除实体标注失败:', error);
+    }
+  };
+
+  // 更新实体标注
+  const handleUpdateAnnotation = async (oldAnnotation, newAnnotation) => {
+    if (!document) return;
+
+    try {
+      // 先删除旧的
+      const currentAnnotations = annotations || [];
+      const annotationIndex = currentAnnotations.findIndex(ann =>
+        ann.id === oldAnnotation.id ||
+        (ann.start === oldAnnotation.start &&
+          ann.end === oldAnnotation.end &&
+          ann.label === oldAnnotation.label &&
+          ann.text === oldAnnotation.text)
+      );
+
+      if (annotationIndex !== -1) {
+        await deleteEntityAnnotation(document.id, annotationIndex);
+      }
+
+      // 再添加新的
+      await addEntityAnnotation(document.id, newAnnotation);
+
+      // 重新加载标注
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+    } catch (error) {
+      console.error('更新实体标注失败:', error);
     }
   };
 
@@ -681,6 +773,13 @@ const Editor = ({ document, project, onBack, onSave }) => {
     }
   };
 
+  // AI分词应用回调
+  const handleApplySegmentation = (segmentedText) => {
+    // 将分词后的文本设置为编辑器内容
+    handleContentChange(segmentedText);
+    setTemporaryHint('AI分词已完成');
+  };
+
   // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -691,29 +790,65 @@ const Editor = ({ document, project, onBack, onSave }) => {
     };
 
     if (typeof window !== 'undefined' && window.document) {
-    window.document.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      window.document.removeEventListener('keydown', handleKeyDown);
-    };
-  }
-}, [content, author, handleManualSave]);
+      window.document.addEventListener('keydown', handleKeyDown);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.feather) {
-      window.feather.replace();
+      return () => {
+        window.document.removeEventListener('keydown', handleKeyDown);
+      };
     }
-  }, [showFindReplace, showMoreMenu, showSegmentationPanel, relationAnnotations]);
+  }, [content, author, handleManualSave]);
 
-  // 确保图标在任何更新后都能正确渲染
+  // 统一管理feather图标渲染 - 只在客户端渲染
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (typeof window !== 'undefined' && window.feather) {
-        window.feather.replace();
+    // 只在客户端执行
+    if (typeof window === 'undefined' || !window.feather) {
+      return;
+    }
+
+    const renderFeatherIcons = () => {
+      // 避免重复渲染
+      if (featherRendered.current) {
+        return;
       }
-    }, 100);
-    return () => clearTimeout(timer);
-  });
+
+      // 延迟渲染确保DOM已更新
+      const timer = setTimeout(() => {
+        try {
+          // 只在客户端环境下使用document
+          if (typeof document !== 'undefined' && document.querySelectorAll) {
+            // 只渲染尚未渲染的图标
+            const icons = document.querySelectorAll('i[data-feather]:not([data-rendered="true"])');
+            if (icons.length > 0) {
+              window.feather.replace();
+
+              // 标记已渲染的图标
+              icons.forEach(icon => {
+                icon.setAttribute('data-rendered', 'true');
+              });
+
+              featherRendered.current = true;
+            }
+          }
+        } catch (error) {
+          console.error('渲染feather图标失败:', error);
+        }
+      }, 150);
+
+      return timer;
+    };
+
+    const timer = renderFeatherIcons();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      featherRendered.current = false;
+    };
+  }, [activeTab]); // 只在选项卡切换时重新渲染
+
+  // 当内容变化时重置渲染标记
+  useEffect(() => {
+    featherRendered.current = false;
+  }, [content]);
 
   // 显示加载状态或错误 - 移到所有 Hook 之后
   if (docsLoading) {
@@ -734,7 +869,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
           <h3>加载失败</h3>
           <p>{docsError}</p>
           <button className="action-btn" onClick={onBack}>
-            <i data-feather="arrow-left"></i> 返回
+            <i data-feather="arrow-left" data-rendered="false"></i> 返回
           </button>
         </div>
       </div>
@@ -748,7 +883,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
           <h3>未登录</h3>
           <p>请先登录再访问文档</p>
           <button className="action-btn" onClick={onBack}>
-            <i data-feather="arrow-left"></i> 返回
+            <i data-feather="arrow-left" data-rendered="false"></i> 返回
           </button>
         </div>
       </div>
@@ -762,7 +897,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
           <h3>文档加载失败</h3>
           <p>无法加载文档信息，请返回重试</p>
           <button className="action-btn" onClick={onBack}>
-            <i data-feather="arrow-left"></i> 返回
+            <i data-feather="arrow-left" data-rendered="false"></i> 返回
           </button>
         </div>
       </div>
@@ -785,7 +920,9 @@ const Editor = ({ document, project, onBack, onSave }) => {
             annotations={annotations}
             onAddAnnotation={handleAddAnnotation}
             onDeleteAnnotation={handleDeleteAnnotation}
+            onUpdateAnnotation={handleUpdateAnnotation}
             textareaRef={textareaRef}
+            readOnly={readOnly}
           />
         );
       case 'relation':
@@ -797,6 +934,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
             relations={relationAnnotations}
             onAddRelation={handleAddRelation}
             onDeleteRelation={handleDeleteRelation}
+            readOnly={readOnly}
           />
         );
       case 'analysis':
@@ -813,28 +951,27 @@ const Editor = ({ document, project, onBack, onSave }) => {
           <h2 className="editor-title">
             {document.name} - {t('document_editor')}
           </h2>
-          
-          {/* 在这里添加可视化按钮 */}
-          <button 
-            className="action-btn visualization-btn"
+
+          {/* 可视化按钮 */}
+          <button
+            className="visualization-btn"
             onClick={() => {
               const documentData = {
                 content: content,
                 annotations: annotations,
                 title: document.name,
                 author: author,
-                documentId: document.id // 添加文档ID
+                documentId: document.id
               };
               localStorage.setItem('currentDocument', JSON.stringify(documentData));
               navigate('/visualization');
             }}
             disabled={!content.trim()}
           >
-            <i data-feather="bar-chart-2"></i>
+            <i data-feather="bar-chart-2" data-rendered="false"></i>
             数据可视化
           </button>
         </div>
-        
 
         <div className="editor-tabs">
           {tabs.map(tab => (
@@ -854,45 +991,44 @@ const Editor = ({ document, project, onBack, onSave }) => {
             title="查找与替换"
             onClick={toggleFindReplacePanel}
           >
-            <i data-feather="search"></i>
+            <i data-feather="search" data-rendered="false"></i>
             <span>查找</span>
           </button>
           <button className="toolbar-btn" title="复制" onClick={handleCopySelection}>
-            <i data-feather="copy"></i>
+            <i data-feather="copy" data-rendered="false"></i>
             <span>复制</span>
           </button>
           <button className="toolbar-btn" title="剪切" onClick={handleCutSelection}>
-            <i data-feather="scissors"></i>
+            <i data-feather="scissors" data-rendered="false"></i>
             <span>剪切</span>
           </button>
           <button className="toolbar-btn" title="粘贴" onClick={() => handlePasteFromClipboard(false)}>
-            <i data-feather="clipboard"></i>
+            <i data-feather="clipboard" data-rendered="false"></i>
             <span>粘贴</span>
           </button>
           <button className="toolbar-btn" title="粘贴为文本" onClick={() => handlePasteFromClipboard(true)}>
-            <i data-feather="file-text"></i>
+            <i data-feather="file-text" data-rendered="false"></i>
             <span>纯文本</span>
           </button>
           <button className="toolbar-btn" title="全选" onClick={handleSelectAll}>
-            <i data-feather="square"></i>
+            <i data-feather="square" data-rendered="false"></i>
             <span>全选</span>
           </button>
           <button className="toolbar-btn" title="删除" onClick={handleDeleteSelection}>
-            <i data-feather="trash-2"></i>
+            <i data-feather="trash-2" data-rendered="false"></i>
             <span>删除</span>
           </button>
           <button className="toolbar-btn" title="自动标点" onClick={handleAutoPunctuation}>
-            <i data-feather="code"></i>
+            <i data-feather="code" data-rendered="false"></i>
             <span>标点</span>
           </button>
-          <button
-            className={`toolbar-btn ${showSegmentationPanel ? 'active' : ''}`}
-            title="自动分词"
-            onClick={toggleSegmentationPanel}
-          >
-            <i data-feather="divide-square"></i>
-            <span>分词</span>
-          </button>
+
+          {/* AI分词按钮 - 内联版本 */}
+          <Segmentation
+            content={content}
+            onApplySegmentation={handleApplySegmentation}
+          />
+
           <div className="toolbar-divider" aria-hidden="true"></div>
           <div className="toolbar-more-wrapper">
             <button
@@ -900,7 +1036,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
               title="显示或隐藏其他工具栏项"
               onClick={handleToolbarMoreToggle}
             >
-              <i data-feather="more-horizontal"></i>
+              <i data-feather="more-horizontal" data-rendered="false"></i>
             </button>
             {showMoreMenu && (
               <div className="toolbar-more-popover">
@@ -939,6 +1075,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
               onChange={handleContentChange}
               placeholder={getEditorPlaceholder(activeTab)}
               textareaRef={textareaRef}
+              readOnly={readOnly}
             />
 
             {showFindReplace && (
@@ -961,10 +1098,10 @@ const Editor = ({ document, project, onBack, onSave }) => {
                     />
                     <div className="input-controls">
                       <button onClick={() => handleFind('prev')} title="上一个">
-                        <i data-feather="chevron-up"></i>
+                        <i data-feather="chevron-up" data-rendered="false"></i>
                       </button>
                       <button onClick={() => handleFind('next')} title="下一个">
-                        <i data-feather="chevron-down"></i>
+                        <i data-feather="chevron-down" data-rendered="false"></i>
                       </button>
                     </div>
                   </div>
@@ -988,7 +1125,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
                       className="options-trigger"
                       onClick={() => setShowFindOptions(prev => !prev)}
                     >
-                      <i data-feather="settings"></i>
+                      <i data-feather="settings" data-rendered="false"></i>
                       {showFindOptions ? '隐藏选项' : '更多选项'}
                     </button>
                     {findMessage && <span className="find-status">{findMessage}</span>}
@@ -1022,20 +1159,6 @@ const Editor = ({ document, project, onBack, onSave }) => {
                       </label>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-
-            {showSegmentationPanel && (
-              <div className="floating-panel segmentation-panel">
-                <div className="panel-header">
-                  <span>自动分词</span>
-                  <button className="panel-close" onClick={toggleSegmentationPanel} title="关闭">
-                    ×
-                  </button>
-                </div>
-                <div className="panel-scroll">
-                  <Segmentation content={content} />
                 </div>
               </div>
             )}
@@ -1074,27 +1197,27 @@ const Editor = ({ document, project, onBack, onSave }) => {
                   className="author-input-compact"
                 />
               </div>
-              <button 
-                className="action-btn primary save-btn-compact"
+              <button
+                className="save-btn-compact"
                 onClick={handleManualSave}
                 disabled={saveStatus === 'saving'}
                 title={saveStatus === 'saving' ? '保存中...' : '保存文档'}
               >
-                <i data-feather="save"></i>
+                <i data-feather="save" data-rendered="false"></i>
                 {saveStatus === 'saving' ? '保存中' : t('save')}
               </button>
             </div>
-            
+
             {saveStatus === 'saved' && (
               <div className="save-status success">
-                <i data-feather="check"></i>
+                <i data-feather="check" data-rendered="false"></i>
                 <span>已保存 {lastSaved}</span>
               </div>
             )}
-            
+
             {saveStatus === 'error' && (
               <div className="save-status error">
-                <i data-feather="alert-circle"></i>
+                <i data-feather="alert-circle" data-rendered="false"></i>
                 <span>保存失败</span>
               </div>
             )}
@@ -1107,22 +1230,6 @@ const Editor = ({ document, project, onBack, onSave }) => {
       </div>
     </div>
   );
-};
-
-// 根据激活的标签返回对应的占位符文本
-const getEditorPlaceholder = (activeTab) => {
-  switch (activeTab) {
-    case 'entity':
-      return t('enter_entity_content');
-    case 'relation':
-      return t('enter_entity_content');
-    case 'analysis':
-      return t('enter_analysis_content');
-    case 'segmentation':
-      return t('enter_segmentation_content');
-    default:
-      return t('enter_content');
-  }
 };
 
 export default Editor;

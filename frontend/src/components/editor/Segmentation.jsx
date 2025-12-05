@@ -1,145 +1,123 @@
 // src/components/editor/Segmentation.js
-import React, { useState } from 'react';
-import { t } from '../../utils/language';
+import React, { useState, useEffect, useRef } from 'react';
 import { segmentationService } from '../../services/segmentationService';
-import { copyToClipboard } from '../../utils';
 import '../../styles/components/Segmentation.css';
 
-const Segmentation = ({ content }) => {
-  const [tokens, setTokens] = useState([]);
-  const [segmenting, setSegmenting] = useState(false);
-  const [stats, setStats] = useState({ total: 0, unique: 0 });
+const Segmentation = ({ content, onApplySegmentation }) => {
+  const [loading, setLoading] = useState(false);
+  const iconRef = useRef(null);
+  const isRendered = useRef(false);
+
+  // 只在组件挂载时渲染一次图标
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.feather || isRendered.current) {
+      return;
+    }
+
+    const renderIcon = () => {
+      if (iconRef.current && window.feather) {
+        // 只渲染当前组件的图标
+        const iconElement = iconRef.current.querySelector('i[data-feather]');
+        if (iconElement) {
+          // 先清除可能存在的重复SVG
+          const existingSvg = iconElement.parentNode.querySelector('svg');
+          if (existingSvg && existingSvg.parentNode === iconElement.parentNode) {
+            existingSvg.remove();
+          }
+          
+          // 渲染图标
+          window.feather.replace(iconElement);
+          isRendered.current = true;
+        }
+      }
+    };
+
+    // 使用较短的延迟确保DOM已更新
+    const timer = setTimeout(renderIcon, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 当loading状态变化时重新渲染图标（从加载状态恢复时）
+  useEffect(() => {
+    if (loading || typeof window === 'undefined' || !window.feather) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (iconRef.current) {
+        const iconElement = iconRef.current.querySelector('i[data-feather]');
+        if (iconElement) {
+          // 清除可能存在的SVG
+          const svgs = iconElement.parentNode.querySelectorAll('svg');
+          svgs.forEach(svg => {
+            if (svg.parentNode === iconElement.parentNode) {
+              svg.remove();
+            }
+          });
+          
+          // 重新渲染
+          window.feather.replace(iconElement);
+        }
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const handleSegment = async () => {
-    if (!content.trim()) {
-      alert(t('input_text_first'));
+    if (!content || !content.trim()) {
+      alert('请输入要分词的文本');
       return;
     }
 
-    setSegmenting(true);
-    setTokens([]);
+    setLoading(true);
 
     try {
-      const result = await segmentationService.segmentChinese(content);
-      setTokens(result);
+      console.log('开始分词处理...');
       
-      const stats = segmentationService.getSegmentationStats(result);
-      setStats(stats);
+      const segmentedText = await segmentationService.segmentTextPreserveFormat(content);
+      
+      console.log('分词完成');
+      
+      // 检查分词是否有变化
+      if (segmentedText === content || !segmentedText) {
+        alert('分词失败或没有需要分词的内容');
+        setLoading(false);
+        return;
+      }
+      
+      if (onApplySegmentation) {
+        onApplySegmentation(segmentedText);
+      }
+      
     } catch (error) {
-      console.error('分词失败:', error);
-      alert(`分词失败: ${error.message}`);
+      console.error('分词失败：', error);
+      alert('分词失败，请重试');
     } finally {
-      setSegmenting(false);
-    }
-  };
-
-  const handleCopyTokens = async () => {
-    if (tokens.length === 0) {
-      alert(t('no_segmentation_result'));
-      return;
-    }
-
-    const text = segmentationService.formatSegmentationResult(tokens);
-    const success = await copyToClipboard(text);
-    
-    if (success) {
-      alert(t('segmentation_copied'));
-    } else {
-      alert(t('copy_failed'));
-    }
-  };
-
-  const handleTokenClick = async (token) => {
-    const success = await copyToClipboard(token.text);
-    if (success) {
-      // 可以显示一个小的提示，或者不做任何操作
+      setLoading(false);
     }
   };
 
   return (
-    <div className="segmentation-component">
-      <div className="segmentation-controls">
-        <button
-          className="action-btn primary-btn"
-          onClick={handleSegment}
-          disabled={segmenting || !content.trim()}
-        >
-          <i data-feather="scissors"></i>
-          {segmenting ? t('segmenting') : t('run_segmentation')}
-        </button>
-        
-        <button
-          className="action-btn"
-          onClick={handleCopyTokens}
-          disabled={tokens.length === 0}
-        >
-          <i data-feather="copy"></i>
-          {t('copy_sequence')}
-        </button>
-      </div>
-
-      {segmenting && (
-        <div className="segmentation-status">
-          <div className="loading-spinner"></div>
-          <span>正在分词中...</span>
-        </div>
+    <button
+      ref={iconRef}
+      className="segment-btn"
+      onClick={handleSegment}
+      disabled={loading || !content || !content.trim()}
+      title="AI分词"
+    >
+      {loading ? (
+        <>
+          <span className="spinner-small"></span>
+          分词中
+        </>
+      ) : (
+        <>
+          <i data-feather="divide-square"></i>
+          AI分词
+        </>
       )}
-
-      {stats.total > 0 && (
-        <div className="segmentation-stats">
-          <div className="stat-item">
-            <span className="stat-label">总词数：</span>
-            <span className="stat-value">{stats.total}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">唯一词数：</span>
-            <span className="stat-value">{stats.unique}</span>
-          </div>
-        </div>
-      )}
-
-      <div className="segmentation-results">
-        <h4>分词结果：</h4>
-        {tokens.length === 0 ? (
-          <div className="empty-segmentation">
-            <i data-feather="align-left"></i>
-            <p>暂无分词结果</p>
-          </div>
-        ) : (
-          <div className="tokens-container">
-            {tokens.map((token, index) => (
-              <span
-                key={index}
-                className="token"
-                title={`位置: ${token.start}-${token.end}`}
-                onClick={() => handleTokenClick(token)}
-              >
-                {token.text}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {tokens.length > 0 && (
-        <div className="segmentation-text">
-          <h4>分词文本：</h4>
-          <div className="segmented-text">
-            {tokens.map((token, index) => (
-              <span key={index} className="token-text">
-                {token.text}
-              </span>
-            )).reduce((acc, element, index) => {
-              if (index > 0) {
-                acc.push(' ');
-              }
-              acc.push(element);
-              return acc;
-            }, [])}
-          </div>
-        </div>
-      )}
-    </div>
+    </button>
   );
 };
 
