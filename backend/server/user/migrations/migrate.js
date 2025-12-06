@@ -1,8 +1,10 @@
 /**
  * 数据库迁移脚本
- * 添加 relationAnnotations 字段
+ * 执行所有SQL迁移文件
  */
 const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const dbConfig = {
@@ -22,30 +24,37 @@ async function migrate() {
         connection = await mysql.createConnection(dbConfig);
         console.log('✅ 数据库连接成功');
 
-        // 检查字段是否已存在
-        console.log('🔍 检查 relationAnnotations 字段是否存在...');
-        const [columns] = await connection.execute(
-            `SHOW COLUMNS FROM documents LIKE 'relationAnnotations'`
-        );
-
-        if (columns.length > 0) {
-            console.log('ℹ️  relationAnnotations 字段已存在，跳过迁移');
+        // 获取迁移目录下的所有SQL文件
+        const migrationsDir = path.dirname(__filename);
+        let sqlFiles = fs.readdirSync(migrationsDir)
+            .filter(file => file.endsWith('.sql'));
+        
+        // 确保init_database.sql首先执行，然后按文件名排序其他文件
+        const initFile = sqlFiles.find(file => file === 'init_database.sql');
+        if (initFile) {
+            sqlFiles = sqlFiles.filter(file => file !== initFile);
+            sqlFiles.sort();
+            sqlFiles.unshift(initFile); // 将init_database.sql放在第一位
         } else {
-            console.log('➕ 添加 relationAnnotations 字段...');
-            await connection.execute(
-                `ALTER TABLE documents ADD COLUMN relationAnnotations JSON NULL`
-            );
-            console.log('✅ relationAnnotations 字段添加成功');
-
-            // 为已存在的记录设置默认值
-            console.log('🔄 设置默认值...');
-            await connection.execute(
-                `UPDATE documents SET relationAnnotations = '[]' WHERE relationAnnotations IS NULL`
-            );
-            console.log('✅ 默认值设置完成');
+            sqlFiles.sort(); // 如果没有init_database.sql，就按默认排序
         }
 
-        console.log('✅ 数据库迁移完成');
+        console.log(`📋 发现 ${sqlFiles.length} 个迁移文件`);
+
+        // 逐个执行迁移文件
+        for (const file of sqlFiles) {
+            const filePath = path.join(migrationsDir, file);
+            console.log(`\n🚀 执行迁移文件: ${file}`);
+            
+            // 读取SQL文件内容
+            const sqlContent = fs.readFileSync(filePath, 'utf8');
+            
+            // 执行SQL脚本
+            await connection.execute(sqlContent);
+            console.log(`✅ 迁移文件执行成功: ${file}`);
+        }
+
+        console.log('\n🎉 所有数据库迁移完成');
     } catch (error) {
         console.error('❌ 迁移失败:', error.message);
         process.exit(1);

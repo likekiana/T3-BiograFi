@@ -17,6 +17,7 @@ const UserModel = require('./models/UserModel');
 const ProjectModel = require('./models/ProjectModel');
 const DocumentModel = require('./models/DocumentModel');
 const AnnotationModel = require('./models/AnnotationModel');
+const LocationGeocodeModel = require('./models/LocationGeocodeModel');
 
 // 数据库初始化
 const { initDatabase, testConnection } = require('./config/database');
@@ -226,9 +227,9 @@ app.post('/api/register', async (req, res) => {
 app.patch('/api/users/:userId', async (req, res) => {
     try {
         const userId = parseInt(req.params.userId);
-        const { email, password } = req.body;
+        const { username, email } = req.body;
         
-        if (!email && !password) {
+        if (!username && !email) {
             return res.status(400).json({ 
                 success: false, 
                 error: '没有需要更新的信息' 
@@ -257,16 +258,8 @@ app.patch('/api/users/:userId', async (req, res) => {
         
         // 更新用户信息
         const updates = {};
+        if (username) updates.username = username;
         if (email) updates.email = email;
-        if (password) {
-            if (password.length < 6) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: '密码至少需要6个字符' 
-                });
-            }
-            updates.password = password;
-        }
         
         const updated = await UserModel.update(userId, updates);
         
@@ -308,6 +301,30 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// 获取用户详情
+app.get('/api/users/:userId', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const user = await UserModel.findById(userId);
+        
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                error: '用户不存在' 
+            });
+        }
+        
+        res.json({ success: true, user });
+        
+    } catch (error) {
+        console.error('获取用户详情错误:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '服务器错误' 
+        });
+    }
+});
+
 // ============ 项目管理 API ============
 
 // 获取用户的所有项目
@@ -321,6 +338,23 @@ app.get('/api/projects', async (req, res) => {
         res.json({ success: true, projects });
     } catch (error) {
         console.error('获取项目列表错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取项目详情
+app.get('/api/projects/:projectId', async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const project = await ProjectModel.findById(projectId);
+        
+        if (!project) {
+            return res.status(404).json({ success: false, error: '项目不存在' });
+        }
+        
+        res.json({ success: true, project });
+    } catch (error) {
+        console.error('获取项目详情错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
@@ -422,6 +456,23 @@ app.get('/api/documents', async (req, res) => {
     }
 });
 
+// 获取文档详情
+app.get('/api/documents/:documentId', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const document = await DocumentModel.findById(documentId);
+        
+        if (!document) {
+            return res.status(404).json({ success: false, error: '文档不存在' });
+        }
+        
+        res.json({ success: true, document });
+    } catch (error) {
+        console.error('获取文档详情错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
 // 创建文档
 app.post('/api/documents', async (req, res) => {
     try {
@@ -501,7 +552,7 @@ app.get('/api/documents/:documentId/annotations', async (req, res) => {
 });
 
 // 添加实体标注
-app.post('/api/documents/:documentId/annotations', async (req, res) => {
+app.post('/api/documents/:documentId/annotations/entity', async (req, res) => {
     try {
         const { documentId } = req.params;
         const { start, end, label, text } = req.body;
@@ -518,8 +569,33 @@ app.post('/api/documents/:documentId/annotations', async (req, res) => {
     }
 });
 
+// 批量添加实体标注
+app.post('/api/documents/:documentId/annotations/entity/bulk', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const { annotations } = req.body;
+
+        if (!Array.isArray(annotations) || annotations.length === 0) {
+            return res.status(400).json({ success: false, error: '缺少必要参数：annotations 必须是一个非空数组' });
+        }
+
+        // 验证每个标注项
+        for (const ann of annotations) {
+            if (typeof ann.start !== 'number' || typeof ann.end !== 'number' || !ann.label) {
+                return res.status(400).json({ success: false, error: '标注项缺少必要参数：start, end, label 都是必需的' });
+            }
+        }
+
+        const entities = await AnnotationModel.addEntitiesBulk(documentId, annotations);
+        res.status(201).json({ success: true, annotations: entities });
+    } catch (error) {
+        console.error('批量添加实体标注错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
 // 删除实体标注
-app.delete('/api/documents/:documentId/annotations/:annotationId', async (req, res) => {
+app.delete('/api/documents/:documentId/annotations/entity/:annotationId', async (req, res) => {
     try {
         const { documentId, annotationId } = req.params;
         const ok = await AnnotationModel.deleteEntity(documentId, parseInt(annotationId));
@@ -529,6 +605,36 @@ app.delete('/api/documents/:documentId/annotations/:annotationId', async (req, r
         res.json({ success: true });
     } catch (error) {
         console.error('删除实体标注错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 搜索实体标注
+app.get('/api/annotations/search', async (req, res) => {
+    try {
+        const { documentId, label, text } = req.query;
+
+        if (!documentId) {
+            return res.status(400).json({ success: false, error: '缺少必要参数：documentId 是必需的' });
+        }
+
+        const annotations = await AnnotationModel.searchEntities(documentId, { label, text });
+        res.json({ success: true, annotations });
+    } catch (error) {
+        console.error('搜索实体标注错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 根据标签统计实体标注数量
+app.get('/api/documents/:documentId/annotations/count', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+
+        const counts = await AnnotationModel.countEntitiesByLabel(documentId);
+        res.json({ success: true, labelCounts: counts });
+    } catch (error) {
+        console.error('统计实体标注数量错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
@@ -549,6 +655,205 @@ app.delete('/api/documents/:documentId', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('删除文档错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 文档搜索
+app.get('/api/documents/search', async (req, res) => {
+    try {
+        const userId = parseInt(req.query.userId);
+        const query = req.query.query;
+        const projectId = req.query.projectId;
+        
+        if (!userId || !query) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：userId 和 query 都是必需的' 
+            });
+        }
+        
+        const documents = await DocumentModel.searchDocuments(userId, query, projectId);
+        res.json({ success: true, documents });
+    } catch (error) {
+        console.error('搜索文档错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ============ 可视化分析 API ============
+
+// 获取可视化总览统计
+app.get('/api/visualization/overview', async (req, res) => {
+    try {
+        const { documentId } = req.query;
+        
+        if (!documentId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：documentId 是必需的' 
+            });
+        }
+        
+        // 获取文档内容
+        const document = await DocumentModel.findById(documentId);
+        if (!document) {
+            return res.status(404).json({ success: false, error: '文档不存在' });
+        }
+        
+        // 计算总字符数
+        const totalChars = document.content ? document.content.length : 0;
+        
+        // 获取标签统计
+        const labelCounts = await AnnotationModel.countEntitiesByLabel(documentId);
+        
+        res.json({ 
+            success: true, 
+            data: {
+                totalChars,
+                labelCounts
+            }
+        });
+    } catch (error) {
+        console.error('获取可视化总览统计错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取地点可视化数据
+app.get('/api/visualization/locations', async (req, res) => {
+    try {
+        const { documentId } = req.query;
+        
+        if (!documentId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：documentId 是必需的' 
+            });
+        }
+        
+        // 获取所有实体标注
+        const annotations = await AnnotationModel.searchEntities(documentId, { label: '地名' });
+        
+        // 这里可以添加更多的处理逻辑，比如获取地名的坐标信息等
+        // 暂时只返回地名标注
+        res.json({ 
+            success: true, 
+            data: {
+                locations: annotations
+            }
+        });
+    } catch (error) {
+        console.error('获取地点可视化数据错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取人物关系图数据
+app.get('/api/visualization/relationships', async (req, res) => {
+    try {
+        const { documentId } = req.query;
+        
+        if (!documentId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：documentId 是必需的' 
+            });
+        }
+        
+        // 获取所有人物实体标注
+        const personAnnotations = await AnnotationModel.searchEntities(documentId, { label: '人物' });
+        
+        // 这里可以添加更多的处理逻辑，比如分析人物之间的关系等
+        // 暂时只返回人物标注
+        res.json({ 
+            success: true, 
+            data: {
+                relationships: personAnnotations
+            }
+        });
+    } catch (error) {
+        console.error('获取人物关系图数据错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 获取时间轴数据
+app.get('/api/visualization/timeline', async (req, res) => {
+    try {
+        const { documentId } = req.query;
+        
+        if (!documentId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：documentId 是必需的' 
+            });
+        }
+        
+        // 获取所有时间实体标注
+        const timeAnnotations = await AnnotationModel.searchEntities(documentId, { label: '时间' });
+        
+        // 这里可以添加更多的处理逻辑，比如排序等
+        // 暂时只返回时间标注
+        res.json({ 
+            success: true, 
+            data: {
+                timeline: timeAnnotations
+            }
+        });
+    } catch (error) {
+        console.error('获取时间轴数据错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// ============ 地名坐标缓存管理 API ============
+
+// 查询地名坐标缓存
+app.get('/api/visualization/locations/cache', async (req, res) => {
+    try {
+        const { name } = req.query;
+        
+        if (!name) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：name 是必需的' 
+            });
+        }
+        
+        const location = await LocationGeocodeModel.findByName(name);
+        res.json({ 
+            success: true, 
+            data: location 
+        });
+    } catch (error) {
+        console.error('查询地名坐标缓存错误:', error);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
+
+// 更新地名坐标缓存
+app.post('/api/visualization/locations/cache', async (req, res) => {
+    try {
+        const { name, lng, lat, matchedName, confidence } = req.body;
+        
+        if (!name || typeof lng !== 'number' || typeof lat !== 'number') {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要参数：name, lng, lat 都是必需的' 
+            });
+        }
+        
+        await LocationGeocodeModel.upsertLocation(name, { 
+            lng, 
+            lat, 
+            matchedName, 
+            confidence 
+        });
+        
+        res.json({ success: true, message: '地名坐标缓存已更新' });
+    } catch (error) {
+        console.error('更新地名坐标缓存错误:', error);
         res.status(500).json({ success: false, error: '服务器错误' });
     }
 });

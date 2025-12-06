@@ -82,6 +82,22 @@ class DocumentModel {
         );
         return result.affectedRows > 0;
     }
+
+    // 搜索文档
+    static async searchDocuments(userId, query, projectId = null) {
+        let searchQuery = `SELECT * FROM documents WHERE user_id = ? AND (name LIKE ? OR content LIKE ? OR description LIKE ?)`;
+        const params = [userId, `%${query}%`, `%${query}%`, `%${query}%`];
+        
+        if (projectId) {
+            searchQuery += ' AND project_id = ?';
+            params.push(projectId);
+        }
+        
+        searchQuery += ' ORDER BY created_at DESC';
+        
+        const [rows] = await pool.execute(searchQuery, params);
+        return rows;
+    }
 }
 
 module.exports = DocumentModel;
