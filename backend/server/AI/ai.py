@@ -15,20 +15,24 @@ CORS(app)
 
 # 导入配置
 try:
-    from config import API_KEY, API_URL, MODEL_ID, TIMEOUT
+    from config import API_KEY, MODEL_ID, TEMPERATURE, MAX_TOKENS, TOP_P, TIMEOUT
 except ImportError:
     # 如果没有 config.py，尝试从环境变量读取
-    API_KEY = os.environ.get('API_KEY', '')
-    API_URL = 'https://qianfan.baidubce.com/v2/chat/completions'
-    MODEL_ID = 'am-hrzab73jvugw'
+    API_KEY = os.environ.get('API_KEY', 'bce-v3/ALTAK-GlzTH3GEwkwIGzCsLtoeG/692dd1e4a3efc131b1b06ef241e668306e6782c9')
+    MODEL_ID = os.environ.get('MODEL_ID', 'am-hrzab73jvugw')
+    QIANFAN_API_URL = 'https://qianfan.baidubce.com/v2/chat/completions'
+    TEMPERATURE = 0.75
+    MAX_TOKENS = 2000
+    TOP_P = 0.9
     TIMEOUT = 30
 else:
     # 若存在配置文件，允许环境变量覆盖其中的 API Key
     API_KEY = os.environ.get('API_KEY', API_KEY)
+    MODEL_ID = os.environ.get('MODEL_ID', MODEL_ID)
 
 def generate_response(prompt, model=None):
     """
-    调用百度千帆 ERNIE X1 API 生成响应
+    调用百度千帆ERNIE X1 API生成响应
     """
     if not API_KEY:
         raise ValueError('未设置 API_KEY 环境变量。请设置后重启服务。')
@@ -38,7 +42,6 @@ def generate_response(prompt, model=None):
         'Authorization': f'Bearer {API_KEY}'  # 使用Bearer Token鉴权
     }
     
-    # 关键：model字段必须使用你的专属模型ID
     payload = {
         "model": model or MODEL_ID,  # 这里决定了调用哪个模型服务
         "messages": [
@@ -46,20 +49,36 @@ def generate_response(prompt, model=None):
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        'temperature': TEMPERATURE,
+        'max_tokens': MAX_TOKENS,
+        'top_p': TOP_P
     }
     
     try:
-        print("正在发送请求...")
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=TIMEOUT)
+        response = requests.post(
+            QIANFAN_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=TIMEOUT
+        )
         response.raise_for_status()  # 检查HTTP错误
+        
         result = response.json()
-        print("请求成功！")
-        return result.get("result", "未收到有效回复。")
+        if 'result' in result:
+            return result.get("result", "未收到有效回复。").strip()
+        elif 'choices' in result and len(result['choices']) > 0:
+            # 兼容OpenAI格式的返回
+            return result['choices'][0]['message']['content'].strip()
+        else:
+            raise ValueError('API 返回格式异常')
+            
     except requests.exceptions.Timeout:
-        raise Exception("错误：请求超时，请检查网络。")
+        raise Exception('错误：请求超时，请检查网络。')
     except requests.exceptions.RequestException as e:
-        raise Exception(f"网络请求错误: {str(e)}")
+        raise Exception(f'网络请求错误: {str(e)}')
+    except json.JSONDecodeError:
+        raise Exception('错误：无法解析API返回的数据。')
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
@@ -92,7 +111,7 @@ def qa_text():
     
     input_text = data['text']
     question = data['question']
-    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
+    model = data.get('model', MODEL_ID)  # 支持前端指定模型
     
     prompt = f"""
 原文："{input_text}"
@@ -130,8 +149,8 @@ def auto_annotate():
 
 请直接返回JSON格式的标注结果，格式如下：
 [
-  {{"text": "实体文本", "label": "人物"}},
-  {{"text": "实体文本", "label": "地名"}}
+  {"text": "实体文本", "label": "人物"},
+  {"text": "实体文本", "label": "地名"}
 ]
 
 注意：
@@ -197,13 +216,15 @@ def auto_annotate():
 if __name__ == '__main__':
     print('=' * 60)
     print('古文解析服务启动中...')
-    print('使用百度千帆 ERNIE X1 API')
+    print('使用百度千帆ERNIE X1 API')
     if API_KEY:
         print(f'API Key: {API_KEY[:8]}...{API_KEY[-4:]}')
+        print(f'Model ID: {MODEL_ID}')
     else:
         print('警告: 未设置 API_KEY 环境变量!')
         print('请设置环境变量后重启服务:')
         print('  export API_KEY=your_api_key_here')
+        print('  export MODEL_ID=your_model_id_here')
     print('服务地址: http://0.0.0.0:5004')
     print('=' * 60)
     app.run(host='0.0.0.0', port=5004, debug=False)

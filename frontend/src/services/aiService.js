@@ -61,7 +61,7 @@ export const aiService = {
       {
         id: 'am-hrzab73jvugw',
         name: 'ERNIE X1',
-        description: '百度千帆ERNIE X1模型，专用于古文解析',
+        description: '百度千帆ERNIE X1模型，适合古文解析',
         recommended: true
       }
     ];

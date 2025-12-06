@@ -12,7 +12,7 @@ const ClassicalAnalysis = ({ content }) => {
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [answering, setAnswering] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('deepseek-chat');
+  const [selectedModel, setSelectedModel] = useState('am-hrzab73jvugw');
 
   const models = aiService.getAvailableModels();
 
