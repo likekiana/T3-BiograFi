@@ -200,14 +200,14 @@ export const documentAPI = {
 
 // AI 服务 API
 export const aiAPI = {
-  async analyzeText(text, model = 'deepseek-chat') {
+  async analyzeText(text, model = 'am-hrzab73jvugw') {
     return request(`${AI_API_BASE}/api/analyze`, {
       method: 'POST',
       body: { text, model },
     });
   },
 
-  async askQuestion(text, question, model = 'deepseek-chat') {
+  async askQuestion(text, question, model = 'am-hrzab73jvugw') {
     return request(`${AI_API_BASE}/api/qa`, {
       method: 'POST',
       body: { text, question, model },

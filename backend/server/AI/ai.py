@@ -15,62 +15,51 @@ CORS(app)
 
 # 导入配置
 try:
-    from config import DEEPSEEK_API_KEY, DEEPSEEK_API_URL, DEEPSEEK_MODEL, TEMPERATURE, MAX_TOKENS, TOP_P, TIMEOUT
+    from config import API_KEY, API_URL, MODEL_ID, TIMEOUT
 except ImportError:
     # 如果没有 config.py，尝试从环境变量读取
-    DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
-    DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
-    DEEPSEEK_MODEL = 'deepseek-chat'
-    TEMPERATURE = 0.75
-    MAX_TOKENS = 2000
-    TOP_P = 0.9
-    TIMEOUT = 60
+    API_KEY = os.environ.get('API_KEY', '')
+    API_URL = 'https://qianfan.baidubce.com/v2/chat/completions'
+    MODEL_ID = 'am-hrzab73jvugw'
+    TIMEOUT = 30
 else:
     # 若存在配置文件，允许环境变量覆盖其中的 API Key
-    DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
+    API_KEY = os.environ.get('API_KEY', API_KEY)
 
 def generate_response(prompt, model=None):
     """
-    调用 DeepSeek API 生成响应
+    调用百度千帆 ERNIE X1 API 生成响应
     """
-    if not DEEPSEEK_API_KEY:
-        raise ValueError('未设置 DEEPSEEK_API_KEY 环境变量。请设置后重启服务。')
+    if not API_KEY:
+        raise ValueError('未设置 API_KEY 环境变量。请设置后重启服务。')
     
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}'
+        'Authorization': f'Bearer {API_KEY}'  # 使用Bearer Token鉴权
     }
     
+    # 关键：model字段必须使用你的专属模型ID
     payload = {
-        'model': model or DEEPSEEK_MODEL,
-        'messages': [
+        "model": model or MODEL_ID,  # 这里决定了调用哪个模型服务
+        "messages": [
             {
-                'role': 'user',
-                'content': prompt
+                "role": "user",
+                "content": prompt
             }
-        ],
-        'temperature': TEMPERATURE,
-        'max_tokens': MAX_TOKENS,
-        'top_p': TOP_P
+        ]
     }
     
     try:
-        response = requests.post(
-            DEEPSEEK_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=TIMEOUT
-        )
-        response.raise_for_status()
-        
+        print("正在发送请求...")
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=TIMEOUT)
+        response.raise_for_status()  # 检查HTTP错误
         result = response.json()
-        if 'choices' in result and len(result['choices']) > 0:
-            return result['choices'][0]['message']['content'].strip()
-        else:
-            raise ValueError('API 返回格式异常')
-            
+        print("请求成功！")
+        return result.get("result", "未收到有效回复。")
+    except requests.exceptions.Timeout:
+        raise Exception("错误：请求超时，请检查网络。")
     except requests.exceptions.RequestException as e:
-        raise Exception(f'调用 DeepSeek API 失败: {str(e)}')
+        raise Exception(f"网络请求错误: {str(e)}")
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
@@ -79,7 +68,7 @@ def analyze_text():
         return jsonify({'error': '请提供要分析的文本'}), 400
     
     input_text = data['text']
-    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
+    model = data.get('model', MODEL_ID)  # 支持前端指定模型
     
     prompt = f"""
 请对"{input_text}"进行详细解释。你的解释应该尽可能全面,包含以下方面:
@@ -152,7 +141,7 @@ def auto_annotate():
 """
     
     try:
-        response = generate_response(prompt, DEEPSEEK_MODEL)
+        response = generate_response(prompt, MODEL_ID)
         # 尝试解析返回的JSON
         # 清理可能的markdown代码块标记
         cleaned = response.strip()
@@ -208,13 +197,13 @@ def auto_annotate():
 if __name__ == '__main__':
     print('=' * 60)
     print('古文解析服务启动中...')
-    print('使用 DeepSeek API')
-    if DEEPSEEK_API_KEY:
-        print(f'API Key: {DEEPSEEK_API_KEY[:8]}...{DEEPSEEK_API_KEY[-4:]}')
+    print('使用百度千帆 ERNIE X1 API')
+    if API_KEY:
+        print(f'API Key: {API_KEY[:8]}...{API_KEY[-4:]}')
     else:
-        print('警告: 未设置 DEEPSEEK_API_KEY 环境变量!')
+        print('警告: 未设置 API_KEY 环境变量!')
         print('请设置环境变量后重启服务:')
-        print('  export DEEPSEEK_API_KEY=your_api_key_here')
+        print('  export API_KEY=your_api_key_here')
     print('服务地址: http://0.0.0.0:5004')
     print('=' * 60)
     app.run(host='0.0.0.0', port=5004, debug=False)

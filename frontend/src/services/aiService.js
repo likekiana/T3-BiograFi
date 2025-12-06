@@ -10,7 +10,7 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 解析结果
    */
-  async analyzeClassicalText(text, model = 'deepseek-chat') {
+  async analyzeClassicalText(text, model = 'am-hrzab73jvugw') {
     try {
       const result = await api.ai.analyzeText(text, model);
       return result.result || '';
@@ -27,7 +27,7 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 答案
    */
-  async askQuestion(text, question, model = 'deepseek-chat') {
+  async askQuestion(text, question, model = 'am-hrzab73jvugw') {
     try {
       const result = await api.ai.askQuestion(text, question, model);
       return result.result || '';
@@ -59,15 +59,10 @@ export const aiService = {
   getAvailableModels() {
     return [
       {
-        id: 'deepseek-chat',
-        name: 'DeepSeek-V3',
-        description: '最新V3模型，速度快，效果好',
+        id: 'am-hrzab73jvugw',
+        name: 'ERNIE X1',
+        description: '百度千帆ERNIE X1模型，专用于古文解析',
         recommended: true
-      },
-      {
-        id: 'deepseek-reasoner',
-        name: 'DeepSeek-R1',
-        description: '推理模型，深度分析，速度较慢'
       }
     ];
   }
