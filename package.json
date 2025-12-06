@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react-feather": "^2.0.10"
   }
 }

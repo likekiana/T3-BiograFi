@@ -45,8 +45,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-map {
@@ -103,7 +108,7 @@
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
   position: relative;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -171,7 +176,7 @@
   min-width: 220px;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .location-info-window h4 {
@@ -209,28 +214,102 @@
 .control-btn {
   width: 40px;
   height: 40px;
-  background: white;
+  background: rgb(255, 255, 255);
   border: 1px solid #ddd;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
   color: #333;
 }
 
+.control-btn svg {
+  stroke-width: 2;
+  transition: all 0.2s;
+}
+
+.control-btn:hover svg {
+  stroke: #007bff;
+}
+
+.map-legend h4 svg {
+  vertical-align: middle;
+  margin-right: 6px;
+  stroke-width: 2;
+}
+
+.ai-match-info svg {
+  vertical-align: middle;
+  margin-right: 6px;
+  stroke-width: 1.5;
+}
+
 .control-btn:hover {
-  background: #f8f9fa;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  background: #b9b9b9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
   color: #007bff;
 }
 
-.control-btn i {
-  width: 18px;
-  height: 18px;
+/* 控制按钮图例（显示在按钮旁或悬停时可见） */
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-legend {
+  background: rgba(255, 255, 255, 0.98);
+  color: #333;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 0.85em;
+  white-space: nowrap;
+  transform: translateX(6px);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.control-item:hover .control-legend,
+.control-btn:focus+.control-legend,
+.control-btn[aria-expanded="true"]+.control-legend {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.control-legend .legend-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* 小屏幕上只显示图标，悬停仍可显示图例 */
+@media (max-width: 768px) {
+  .control-legend {
+    display: none;
+  }
+
+  .control-item:hover .control-legend {
+    display: block;
+    position: absolute;
+    right: 56px;
+    /* 按钮宽度 + 间距 */
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 1;
+  }
 }
 
 /* 地图图例 */
@@ -260,11 +339,6 @@
   gap: 6px;
 }
 
-.map-legend h4 i {
-  width: 16px;
-  height: 16px;
-}
-
 .legend-scale {
   margin-bottom: 12px;
   padding-bottom: 12px;
@@ -292,7 +366,7 @@
   border: 2px solid white;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
@@ -340,7 +414,7 @@
   height: 12px;
   border-radius: 50%;
   border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
@@ -420,23 +494,23 @@
     bottom: 10px;
     left: 10px;
   }
-  
+
   .map-controls {
     top: 10px;
     right: 10px;
   }
-  
-  .control-btn {
+
+  /* .control-btn {
     width: 36px;
     height: 36px;
-  }
-  
+  } */
+
   .map-status {
     bottom: 10px;
     right: 10px;
     font-size: 0.7em;
   }
-  
+
   .location-info-window {
     min-width: 180px;
   }
@@ -522,7 +596,7 @@
   display: inline-block;
   margin-right: 8px;
   border: 2px solid white;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .accuracy-dot.high {
@@ -555,11 +629,6 @@
   font-weight: 500;
 }
 
-.ai-match-info i {
-  width: 14px;
-  height: 14px;
-}
-
 /* 信息窗口中的精度显示 */
 .confidence-high {
   color: #28a745;
@@ -588,7 +657,7 @@
 /* 标记悬停效果增强 */
 .custom-marker:hover .marker-pin {
   transform: rotate(-45deg) scale(1.1);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* 高精度标记的特殊效果 */
@@ -604,9 +673,11 @@
   0% {
     box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
   }
+
   50% {
     box-shadow: 0 2px 12px rgba(40, 167, 69, 0.8);
   }
+
   100% {
     box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
   }
@@ -616,9 +687,11 @@
   0% {
     box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
   }
+
   50% {
     box-shadow: 0 2px 12px rgba(255, 193, 7, 0.8);
   }
+
   100% {
     box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
   }
@@ -629,20 +702,237 @@
   .matching-progress progress {
     width: 150px;
   }
-  
+
   .accuracy-dot {
     width: 10px;
     height: 10px;
     margin-right: 6px;
   }
-  
+
   .ai-match-info {
     font-size: 0.75em;
   }
-  
+
   .accuracy-badge {
     width: 14px;
     height: 14px;
     font-size: 9px;
   }
+}
+
+/* 样式控制容器 */
+.style-control-container {
+  position: relative;
+}
+
+/* 激活状态的样式按钮 */
+.control-btn[data-active="true"] {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.control-btn[data-active="true"] svg {
+  stroke: white;
+}
+
+/* 样式选择器弹出框 */
+.style-selector {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  width: 220px;
+  z-index: 1100;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.style-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9em;
+}
+
+.close-selector {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close-selector:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+/* 样式选项 */
+.style-options {
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.style-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+  color: #333;
+  text-align: left;
+}
+
+.style-option:hover {
+  background: #f0f7ff;
+  transform: translateX(-2px);
+}
+
+.style-option.active {
+  background: #e3f2fd;
+  border-left: 3px solid #007bff;
+}
+
+.style-icon {
+  margin-right: 10px;
+  opacity: 0.8;
+}
+
+.style-option.active .style-icon {
+  opacity: 1;
+  color: #007bff;
+}
+
+.style-name {
+  flex: 1;
+  font-size: 0.85em;
+}
+
+.active-indicator {
+  color: #28a745;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+/* 当前样式信息 */
+.current-style-info {
+  padding: 10px 16px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  font-size: 0.8em;
+  color: #666;
+  text-align: center;
+}
+
+/* 图例中的地图样式信息 */
+.map-style-info {
+  display: flex;
+  align-items: center;
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #dee2e6;
+}
+
+.style-label {
+  margin-right: 8px;
+  opacity: 0.8;
+}
+
+.style-name {
+  color: #007bff;
+  font-weight: 500;
+}
+
+/* 针对不同地图样式的标记调整 */
+/* 当使用深色地图时，增强标记边框 */
+.amap-layer-tile[style*="dark"] .custom-marker .marker-pin {
+  border-width: 3px;
+  border-color: white;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* 当使用无底图时，改变标记颜色 */
+.amap-layer-tile[style*="8e18d6f3c8e4c24645505580481f8d25"] .custom-marker .marker-pin {
+  background: #17a2b8;
+  /* 改为青色，更醒目 */
+}
+
+/* 滚动条样式 */
+.style-options::-webkit-scrollbar {
+  width: 4px;
+}
+
+.style-options::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.style-options::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.style-options::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.loading-tip {
+  font-size: 0.9em;
+  color: #999;
+  margin-top: 10px;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  text-align: center;
+  padding: 40px;
+}
+
+.error-state h3 {
+  color: #dc3545;
+  margin-bottom: 10px;
+}
+
+.retry-button {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background 0.2s;
+}
+
+.retry-button:hover {
+  background: #0056b3;
 }
