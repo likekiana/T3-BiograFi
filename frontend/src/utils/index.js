@@ -178,6 +178,43 @@ export const formatFileSize = (bytes) => {
 import jschardet from 'jschardet';
 
 /**
+ * 安全地使用jschardet检测编码（修复Uint8Array兼容性问题）
+ * @param {ArrayBuffer|Uint8Array|string} buffer - 要检测的数据
+ * @returns {object} 检测结果
+ */
+const safeDetectEncoding = (buffer) => {
+  try {
+    // 处理不同类型的输入
+    let inputForDetection;
+    
+    if (buffer instanceof ArrayBuffer) {
+      // ArrayBuffer -> 普通数组
+      const uint8Array = new Uint8Array(buffer);
+      inputForDetection = Array.from(uint8Array);
+    } else if (buffer instanceof Uint8Array) {
+      // Uint8Array -> 普通数组
+      inputForDetection = Array.from(buffer);
+    } else if (typeof buffer === 'string') {
+      // 字符串直接使用
+      inputForDetection = buffer;
+    } else if (buffer && typeof buffer === 'object' && buffer.length !== undefined) {
+      // 已经是数组或类数组
+      inputForDetection = Array.isArray(buffer) ? buffer : Array.from(buffer);
+    } else {
+      // 其他类型转换为字符串
+      inputForDetection = String(buffer);
+    }
+    
+    // 调用jschardet检测
+    return jschardet.detect(inputForDetection);
+  } catch (error) {
+    console.error('编码检测失败:', error);
+    // 返回默认的UTF-8编码结果
+    return { encoding: 'utf-8', confidence: 0 };
+  }
+};
+
+/**
  * 读取文件为文本
  * @param {File} file - 要读取的文件
  * @returns {Promise<string>} 文件内容
@@ -211,33 +248,67 @@ export const readFileAsText = async (file) => {
     
     reader.onload = (e) => {
       const arrayBuffer = e.target.result;
-      const buffer = new Uint8Array(arrayBuffer);
       
-      // 使用jschardet检测文件编码
-      const detectionResult = jschardet.detect(buffer);
-      let encoding = detectionResult.encoding || 'utf-8';
-      
-      // 统一编码名称，确保浏览器支持
-      if (encoding.toLowerCase() === 'gb2312' || encoding.toLowerCase() === 'gbk') {
-        encoding = 'gbk';
-      } else if (encoding.toLowerCase() === 'utf-8' || encoding.toLowerCase() === 'ascii') {
-        encoding = 'utf-8';
-      }
-      
-      // 使用检测到的编码重新读取文件
-      const textReader = new FileReader();
-      textReader.onload = (e) => resolve(e.target.result);
-      textReader.onerror = () => {
-        // 如果检测到的编码读取失败，使用utf-8作为最后尝试
+      try {
+        // 使用修复后的安全编码检测函数
+        const detectionResult = safeDetectEncoding(arrayBuffer);
+        let encoding = detectionResult.encoding || 'utf-8';
+        
+        // 统一编码名称，确保浏览器支持
+        if (encoding.toLowerCase() === 'gb2312' || encoding.toLowerCase() === 'gbk') {
+          encoding = 'gbk';
+        } else if (encoding.toLowerCase() === 'utf-8' || encoding.toLowerCase() === 'ascii') {
+          encoding = 'utf-8';
+        } else if (encoding.toLowerCase() === 'windows-1252') {
+          // Windows-1252编码在浏览器中通常不被支持，转换为ISO-8859-1或UTF-8
+          encoding = 'utf-8';
+        }
+        
+        // 打印检测结果用于调试
+        console.log(`文件编码检测结果:`, {
+          检测到编码: detectionResult.encoding,
+          置信度: detectionResult.confidence,
+          最终使用编码: encoding
+        });
+        
+        // 如果置信度过低（小于0.2），使用UTF-8作为默认
+        if (detectionResult.confidence < 0.2) {
+          console.warn('编码检测置信度过低，使用UTF-8作为默认编码');
+          encoding = 'utf-8';
+        }
+        
+        // 使用检测到的编码重新读取文件
+        const textReader = new FileReader();
+        textReader.onload = (e) => {
+          resolve(e.target.result);
+        };
+        textReader.onerror = () => {
+          console.warn(`使用编码 ${encoding} 读取文件失败，尝试UTF-8`);
+          // 如果检测到的编码读取失败，使用utf-8作为最后尝试
+          const fallbackReader = new FileReader();
+          fallbackReader.onload = (e) => resolve(e.target.result);
+          fallbackReader.onerror = () => {
+            console.error('使用UTF-8读取文件也失败:', fallbackReader.error);
+            reject(fallbackReader.error);
+          };
+          fallbackReader.readAsText(file, 'utf-8');
+        };
+        textReader.readAsText(file, encoding);
+      } catch (detectionError) {
+        console.error('编码检测过程出错:', detectionError);
+        // 编码检测失败时，直接使用 UTF-8
         const fallbackReader = new FileReader();
         fallbackReader.onload = (e) => resolve(e.target.result);
         fallbackReader.onerror = () => reject(fallbackReader.error);
         fallbackReader.readAsText(file, 'utf-8');
-      };
-      textReader.readAsText(file, encoding);
+      }
     };
     
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => {
+      console.error('读取ArrayBuffer失败:', reader.error);
+      reject(reader.error);
+    };
+    
     // 先以ArrayBuffer读取文件用于编码检测
     reader.readAsArrayBuffer(file);
   });
