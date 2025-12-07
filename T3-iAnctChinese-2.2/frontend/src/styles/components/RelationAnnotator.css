@@ -1,0 +1,151 @@
+/* src/styles/components/RelationAnnotator.css */
+.relation-annotator {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.relation-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.relation-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.relation-name-input input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 220px;
+}
+
+.relation-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.relation-actions .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.relation-actions .action-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.relation-actions .action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.relation-list-section {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.relation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.relation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.relation-entities {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entity-chip {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.relation-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.delete-relation-btn {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #6b7280;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+  flex-shrink: 0;
+}
+
+.delete-relation-btn:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.delete-relation-btn i {
+  width: 18px;
+  height: 18px;
+}
+
+.empty-relations {
+  text-align: center;
+  color: #9ca3af;
+  padding: 20px 0;
+}
+
+@media (max-width: 768px) {
+  .relation-controls {
+    flex-direction: column;
+  }
+
+  .relation-name-input input {
+    width: 100%;
+  }
+}

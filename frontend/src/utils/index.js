@@ -174,6 +174,9 @@ export const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+// 导入jschardet库用于编码检测
+import jschardet from 'jschardet';
+
 /**
  * 读取文件为文本
  * @param {File} file - 要读取的文件
@@ -196,12 +199,47 @@ export const readFileAsText = async (file) => {
     }
   }
   
+  // 处理doc文件
+  if (fileName.endsWith('.doc')) {
+    throw new Error('当前不支持.doc文件，请转换为.docx格式后再导入');
+  }
+  
   // 处理txt、md等文本文件
   return new Promise((resolve, reject) => {
+    // 先读取文件内容进行编码检测
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    
+    reader.onload = (e) => {
+      const arrayBuffer = e.target.result;
+      const buffer = new Uint8Array(arrayBuffer);
+      
+      // 使用jschardet检测文件编码
+      const detectionResult = jschardet.detect(buffer);
+      let encoding = detectionResult.encoding || 'utf-8';
+      
+      // 统一编码名称，确保浏览器支持
+      if (encoding.toLowerCase() === 'gb2312' || encoding.toLowerCase() === 'gbk') {
+        encoding = 'gbk';
+      } else if (encoding.toLowerCase() === 'utf-8' || encoding.toLowerCase() === 'ascii') {
+        encoding = 'utf-8';
+      }
+      
+      // 使用检测到的编码重新读取文件
+      const textReader = new FileReader();
+      textReader.onload = (e) => resolve(e.target.result);
+      textReader.onerror = () => {
+        // 如果检测到的编码读取失败，使用utf-8作为最后尝试
+        const fallbackReader = new FileReader();
+        fallbackReader.onload = (e) => resolve(e.target.result);
+        fallbackReader.onerror = () => reject(fallbackReader.error);
+        fallbackReader.readAsText(file, 'utf-8');
+      };
+      textReader.readAsText(file, encoding);
+    };
+    
     reader.onerror = () => reject(reader.error);
-    reader.readAsText(file, 'utf-8');
+    // 先以ArrayBuffer读取文件用于编码检测
+    reader.readAsArrayBuffer(file);
   });
 };
 

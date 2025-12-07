@@ -56,6 +56,18 @@ export const segmentationService = {
   },
 
   /**
+   * 从HTML内容中提取纯文本
+   */
+  extractPlainText(html) {
+    if (!html) return '';
+    
+    // 创建临时DOM元素来提取纯文本
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  },
+
+  /**
    * 将tokens转换回分词文本，保持原有格式
    */
   tokensToSegmentedText(originalText, tokens) {

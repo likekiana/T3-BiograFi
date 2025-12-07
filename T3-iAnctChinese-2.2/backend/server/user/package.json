@@ -1,0 +1,30 @@
+{
+  "name": "ianct-chinese-user-server",
+  "version": "1.0.0",
+  "description": "用户管理后端服务 - Express 版本",
+  "main": "user-server.js",
+  "scripts": {
+    "dev": "node start-all.js",
+    "start": "react-scripts start",
+    "start:user": "cd server/user && npm start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "keywords": [
+    "user",
+    "authentication",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "mysql2": "^3.15.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

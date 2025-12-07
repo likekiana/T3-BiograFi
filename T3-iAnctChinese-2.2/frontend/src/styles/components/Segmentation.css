@@ -1,0 +1,63 @@
+/* src/styles/components/Segmentation.css */
+.segment-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #4dabf7 0%, #228be6 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin: 0 4px;
+  min-width: 80px;
+  height: 40px;
+  position: relative;
+  overflow: visible;
+}
+
+.segment-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #339af0 0%, #1c7ed6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 139, 230, 0.3);
+}
+
+.segment-btn:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* 图标容器 */
+.segment-btn i[data-feather] {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+}
+
+/* 确保只有一个SVG显示 */
+.segment-btn svg:not(:first-of-type) {
+  display: none !important;
+}
+
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

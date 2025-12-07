@@ -1,0 +1,1073 @@
+/* src/styles/components/EntityAnnotator.css */
+.entity-annotator {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.annotator-controls {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.control-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.label-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 40px;
+}
+
+.label-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.shortcut-hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.control-buttons .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  white-space: nowrap;
+  height: 40px;
+}
+
+.control-buttons .action-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.control-buttons .action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.control-buttons .action-btn.primary {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.control-buttons .action-btn.primary:hover:not(:disabled) {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.control-buttons .action-btn.danger {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.control-buttons .action-btn.danger:hover:not(:disabled) {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-color: #f87171;
+}
+
+/* 标注预览 */
+.annotation-preview {
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.preview-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.annotation-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background-color: #3b82f6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.annotation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.empty-annotations {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+}
+
+.empty-annotations i {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-annotations p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.empty-annotations small {
+  font-size: 12px;
+}
+
+.annotation-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.annotation-item:hover {
+  transform: translateX(2px);
+  background-color: #eff6ff !important;
+  border-color: #3b82f6 !important;
+}
+
+.item-highlight {
+  background-color: #eff6ff !important;
+  border-color: #3b82f6 !important;
+}
+
+.annotation-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-人物 {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-地名 {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-时间 {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+
+.badge-器物 {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.badge-概念 {
+  background-color: #fce7f3;
+  color: #be185d;
+}
+
+.badge-其他 {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.annotation-text {
+  flex: 1;
+  font-size: 14px;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
+}
+
+.delete-annotation-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  color: #9ca3af;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-annotation-btn:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+
+/* AI标注标记 */
+.ai-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-left: 4px;
+  background-color: #8b5cf6;
+  color: white;
+  border-radius: 4px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+/* 置信度标记 */
+.confidence-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-left: 4px;
+  background-color: #e5e7eb;
+  color: #4b5563;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+/* 文本预览 */
+.text-preview {
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.annotated-text {
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  line-height: 1.6;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
+  white-space: pre-wrap;
+  min-height: 100px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.entity-annotation {
+  position: relative;
+  background-color: #fff7ed;
+  border-bottom: 2px solid #fb923c;
+  padding: 1px 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.entity-annotation:hover {
+  background-color: #fed7aa;
+  transform: translateY(-1px);
+}
+
+.entity-人物 {
+  background-color: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.entity-地名 {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.entity-时间 {
+  background-color: #f3e8ff;
+  border-color: #8b5cf6;
+}
+
+.entity-器物 {
+  background-color: #dcfce7;
+  border-color: #22c55e;
+}
+
+.entity-概念 {
+  background-color: #fce7f3;
+  border-color: #ec4899;
+}
+
+.entity-其他 {
+  background-color: #f1f5f9;
+  border-color: #64748b;
+}
+
+.annotation-highlight {
+  box-shadow: 0 0 0 2px #3b82f6;
+  z-index: 1;
+}
+
+.annotation-editing {
+  box-shadow: 0 0 0 3px currentColor;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 0 6px currentColor;
+  }
+}
+
+.annotation-delete-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.entity-annotation:hover .annotation-delete-btn {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* ==================== 快速操作菜单自适应样式 ==================== */
+.quick-actions-menu {
+  position: fixed;
+  animation: fadeIn 0.15s ease-out;
+  pointer-events: auto;
+  z-index: 9999;
+  min-width: 280px;
+  max-width: 450px;
+  width: auto;
+  margin-top: -18px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.quick-actions-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  border: 1px solid #f1f5f9;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  width: 100%;
+}
+
+.label-buttons-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.label-buttons-scroll {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px 2px 8px 2px;
+  width: 100%;
+}
+
+.label-buttons-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.label-buttons-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.label-buttons-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.label-buttons-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 标签按钮自适应 */
+.label-button-inline {
+  padding: 8px 12px;
+  border: 1px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1.2;
+  min-width: 60px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.label-button-inline:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.label-button-inline.selected {
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* 编辑器选择状态的视觉反馈 */
+.contenteditable[contenteditable="true"]::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.contenteditable[contenteditable="true"]::-moz-selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* ==================== 模态框样式优化 ==================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+@keyframes fadeInModal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f1f5f9;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-header h5 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-header h5::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+  border-radius: 2px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: #64748b;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background-color: #f1f5f9;
+  color: #475569;
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: 20px 24px;
+}
+
+.form-group {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group input::placeholder {
+  color: #94a3b8;
+}
+
+.input-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 8px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ==================== 美化按钮样式 ==================== */
+.btn {
+  padding: 12px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 100px;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #64748b;
+  border: 2px solid #e2e8f0;
+}
+
+.btn-outline:hover {
+  background-color: #f8fafc;
+  color: #475569;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 768px) {
+  .annotator-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+
+  .control-group {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .control-buttons {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .control-buttons .action-btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 140px;
+  }
+
+  .annotation-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .annotation-badge {
+    align-self: flex-start;
+  }
+
+  .preview-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .annotation-stats,
+  .legend {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .quick-actions-menu {
+    min-width: 280px;
+    max-width: 90vw;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    right: auto !important;
+  }
+  
+  .label-buttons-scroll {
+    gap: 6px;
+  }
+  
+  .label-button-inline {
+    font-size: 11px;
+    padding: 6px 10px;
+    min-width: 50px;
+    height: 26px;
+  }
+  
+  .label-button-wrapper {
+    margin-right: 2px;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 20px;
+    max-width: 350px;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+    padding: 14px 20px;
+  }
+}
+
+/* ==================== 滚动条样式 ==================== */
+.annotation-list::-webkit-scrollbar,
+.annotated-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.annotation-list::-webkit-scrollbar-track,
+.annotated-text::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.annotation-list::-webkit-scrollbar-thumb,
+.annotated-text::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.annotation-list::-webkit-scrollbar-thumb:hover,
+.annotated-text::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ==================== 按钮图标动画 ==================== */
+.btn i,
+.label-button-inline i {
+  transition: transform 0.2s ease;
+}
+
+.btn:hover i {
+  transform: scale(1.1);
+}
+
+.btn-primary:hover i {
+  transform: translateY(-1px) scale(1.1);
+}
+
+/* ==================== 添加自定义标签相关样式 ==================== */
+.label-select-container {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-label-toggle {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.custom-label-toggle:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+.custom-dot {
+  display: inline-block;
+  margin-left: 4px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.badge-custom {
+  border: 1px dashed currentColor;
+}
+
+.annotation-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ==================== 自定义标签删除功能样式 ==================== */
+
+/* 标签按钮包装器 */
+.label-button-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+}
+
+.custom-label-wrapper {
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.custom-label-wrapper:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.custom-label-wrapper:hover .delete-label-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 删除标签按钮 */
+.delete-label-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  transform: scale(0.8);
+  z-index: 2;
+  line-height: 1;
+  padding: 0;
+}
+
+.delete-label-btn:hover {
+  background-color: #dc2626;
+  transform: scale(1);
+}
+
+.delete-icon {
+  display: block;
+  font-size: 14px;
+  line-height: 1;
+  margin-top: -1px;
+}
+
+/* ==================== 删除确认模态框 ==================== */
+.small-modal {
+  max-width: 400px;
+}
+
+.delete-confirm-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.warning-icon {
+  font-size: 48px;
+  color: #f59e0b;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.warning-icon i {
+  animation: pulse 2s infinite;
+}
+
+.delete-confirm-content p {
+  margin: 12px 0;
+  font-size: 15px;
+  color: #374151;
+}
+
+.delete-confirm-content strong {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.warning-text {
+  font-size: 14px;
+  color: #6b7280;
+  opacity: 0.8;
+}
+
+/* 危险按钮 */
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.3);
+}
+
+/* 标注徽章内容容器 */
+.annotation-badge-content {
+  position: relative;
+}
+
+.annotation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 自定义标签样式 */
+.badge-custom {
+  position: relative;
+  padding-right: 8px;
+}
+
+/* 少量标签时的居中显示 */
+.label-buttons-scroll:not(:has(.label-button-wrapper:nth-child(8))) {
+  justify-content: center;
+}
+
+/* 大量标签时的滚动提示 */
+.label-buttons-scroll:has(.label-button-wrapper:nth-child(9))::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: #cbd5e1;
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+/* 添加自定义标签提示 */
+.label-select option[value*="custom"] {
+  font-style: italic;
+}
+
+.label-select option[value*="custom"]::after {
+  content: " (自定义)";
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* 自定义标签标识 */
+.custom-label-tag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  background: #8b5cf6;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 4px;
+  vertical-align: middle;
+}

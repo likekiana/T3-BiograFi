@@ -14,114 +14,39 @@ app = Flask(__name__)
 CORS(app) 
 
 # 导入配置
-
-# 初始化默认配置
-# 百度千帆ERNIE X1配置
-QIANFAN_API_KEY = 'bce-v3/ALTAK-GlzTH3GEwkwIGzCsLtoeG/692dd1e4a3efc131b1b06ef241e668306e6782c9'
-QIANFAN_MODEL_ID = 'am-hrzab73jvugw'
-QIANFAN_API_URL = 'https://qianfan.baidubce.com/v2/chat/completions'
-
-# DeepSeek配置
-DEEPSEEK_API_KEY = 'sk-e8ad98bc116c40b2aebdef00d10d8b54'
-DEEPSEEK_MODEL_ID = 'deepseek-chat'
-DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
-
-# 通用配置
-TEMPERATURE = 0.75
-MAX_TOKENS = 2000
-TOP_P = 0.9
-TIMEOUT = 30
-
-# 默认使用DeepSeek模型
-DEFAULT_API_TYPE = 'deepseek'  # 'qianfan' 或 'deepseek'
-
-# 尝试从配置文件读取配置
 try:
-    import config
-    
-    # 使用配置文件中的值覆盖默认值，如果存在的话
-    if hasattr(config, 'API_KEY'):
-        QIANFAN_API_KEY = config.API_KEY
-    if hasattr(config, 'MODEL_ID'):
-        QIANFAN_MODEL_ID = config.MODEL_ID
-    if hasattr(config, 'QIANFAN_API_URL'):
-        QIANFAN_API_URL = config.QIANFAN_API_URL
-    
-    if hasattr(config, 'DEEPSEEK_API_KEY'):
-        DEEPSEEK_API_KEY = config.DEEPSEEK_API_KEY
-    if hasattr(config, 'DEEPSEEK_MODEL_ID'):
-        DEEPSEEK_MODEL_ID = config.DEEPSEEK_MODEL_ID
-    if hasattr(config, 'DEEPSEEK_API_URL'):
-        DEEPSEEK_API_URL = config.DEEPSEEK_API_URL
-    if hasattr(config, 'DEFAULT_API_TYPE'):
-        DEFAULT_API_TYPE = config.DEFAULT_API_TYPE
-    
-    if hasattr(config, 'TEMPERATURE'):
-        TEMPERATURE = config.TEMPERATURE
-    if hasattr(config, 'MAX_TOKENS'):
-        MAX_TOKENS = config.MAX_TOKENS
-    if hasattr(config, 'TOP_P'):
-        TOP_P = config.TOP_P
-    if hasattr(config, 'TIMEOUT'):
-        TIMEOUT = config.TIMEOUT
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_API_URL, DEEPSEEK_MODEL, TEMPERATURE, MAX_TOKENS, TOP_P, TIMEOUT
 except ImportError:
-    print('未找到配置文件，使用默认配置')
+    # 如果没有 config.py，尝试从环境变量读取
+    DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
+    DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
+    DEEPSEEK_MODEL = 'deepseek-chat'
+    TEMPERATURE = 0.75
+    MAX_TOKENS = 2000
+    TOP_P = 0.9
+    TIMEOUT = 60
+else:
+    # 若存在配置文件，允许环境变量覆盖其中的 API Key
+    DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
 
-# 允许环境变量覆盖配置
-QIANFAN_API_KEY = os.environ.get('API_KEY', QIANFAN_API_KEY)
-QIANFAN_MODEL_ID = os.environ.get('MODEL_ID', QIANFAN_MODEL_ID)
-QIANFAN_API_URL = os.environ.get('QIANFAN_API_URL', QIANFAN_API_URL)
-
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
-DEEPSEEK_MODEL_ID = os.environ.get('DEEPSEEK_MODEL_ID', DEEPSEEK_MODEL_ID)
-DEEPSEEK_API_URL = os.environ.get('DEEPSEEK_API_URL', DEEPSEEK_API_URL)
-DEFAULT_API_TYPE = os.environ.get('DEFAULT_API_TYPE', DEFAULT_API_TYPE)
-
-TEMPERATURE = float(os.environ.get('TEMPERATURE', TEMPERATURE))
-MAX_TOKENS = int(os.environ.get('MAX_TOKENS', MAX_TOKENS))
-TOP_P = float(os.environ.get('TOP_P', TOP_P))
-TIMEOUT = int(os.environ.get('TIMEOUT', TIMEOUT))
-
-def generate_response(prompt, model=None, api_type=None):
+def generate_response(prompt, model=None):
     """
-    调用AI API生成响应，支持百度千帆和DeepSeek
-    
-    参数：
-    - prompt: 提示词
-    - model: 模型ID，可选，优先使用
-    - api_type: API类型，可选，'qianfan' 或 'deepseek'，默认使用DEFAULT_API_TYPE
+    调用 DeepSeek API 生成响应
     """
-    # 确定使用的API类型
-    final_api_type = api_type or DEFAULT_API_TYPE
+    if not DEEPSEEK_API_KEY:
+        raise ValueError('未设置 DEEPSEEK_API_KEY 环境变量。请设置后重启服务。')
     
-    # 根据API类型配置参数
-    if final_api_type == 'qianfan':
-        # 百度千帆配置
-        api_key = QIANFAN_API_KEY
-        default_model_id = QIANFAN_MODEL_ID
-        api_url = QIANFAN_API_URL
-        if not api_key:
-            raise ValueError('未设置百度千帆 API_KEY 环境变量。请设置后重启服务。')
-    else:  # deepseek
-        # DeepSeek配置
-        api_key = DEEPSEEK_API_KEY
-        default_model_id = DEEPSEEK_MODEL_ID
-        api_url = DEEPSEEK_API_URL
-        if not api_key:
-            raise ValueError('未设置 DeepSeek API_KEY 环境变量。请设置后重启服务。')
-    
-    # 设置headers和payload
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'  # 使用Bearer Token鉴权
+        'Authorization': 'Bearer {}'.format(DEEPSEEK_API_KEY)
     }
     
     payload = {
-        "model": model or default_model_id,  # 这里决定了调用哪个模型服务
-        "messages": [
+        'model': model or DEEPSEEK_MODEL,
+        'messages': [
             {
-                "role": "user",
-                "content": prompt
+                'role': 'user',
+                'content': prompt
             }
         ],
         'temperature': TEMPERATURE,
@@ -131,28 +56,21 @@ def generate_response(prompt, model=None, api_type=None):
     
     try:
         response = requests.post(
-            api_url,
+            DEEPSEEK_API_URL,
             headers=headers,
             json=payload,
             timeout=TIMEOUT
         )
-        response.raise_for_status()  # 检查HTTP错误
+        response.raise_for_status()
         
         result = response.json()
-        if 'result' in result:  # 百度千帆格式
-            return result.get("result", "未收到有效回复。").strip()
-        elif 'choices' in result and len(result['choices']) > 0:  # OpenAI/DeepSeek格式
-            # 兼容OpenAI格式的返回
+        if 'choices' in result and len(result['choices']) > 0:
             return result['choices'][0]['message']['content'].strip()
         else:
             raise ValueError('API 返回格式异常')
             
-    except requests.exceptions.Timeout:
-        raise Exception('错误：请求超时，请检查网络。')
     except requests.exceptions.RequestException as e:
-        raise Exception(f'网络请求错误: {str(e)}')
-    except json.JSONDecodeError:
-        raise Exception('错误：无法解析API返回的数据。')
+        raise Exception('调用 DeepSeek API 失败: {}'.format(str(e)))
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
@@ -161,8 +79,7 @@ def analyze_text():
         return jsonify({'error': '请提供要分析的文本'}), 400
     
     input_text = data['text']
-    model = data.get('model')  # 支持前端指定模型
-    api_type = data.get('api_type')  # 支持前端指定API类型
+    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
     
     prompt = f"""
 请对"{input_text}"进行详细解释。你的解释应该尽可能全面,包含以下方面:
@@ -173,7 +90,7 @@ def analyze_text():
 """
     
     try:
-        response = generate_response(prompt, model, api_type)
+        response = generate_response(prompt, model)
         return jsonify({'result': response})
     except Exception as e:
         return jsonify({'error': f'生成回复时出错: {str(e)}'}), 500
@@ -186,8 +103,7 @@ def qa_text():
     
     input_text = data['text']
     question = data['question']
-    model = data.get('model')  # 支持前端指定模型
-    api_type = data.get('api_type')  # 支持前端指定API类型
+    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
     
     prompt = f"""
 原文："{input_text}"
@@ -198,7 +114,7 @@ def qa_text():
 """
     
     try:
-        response = generate_response(prompt, model, api_type)
+        response = generate_response(prompt, model)
         return jsonify({'result': response})
     except Exception as e:
         return jsonify({'error': f'生成回复时出错: {str(e)}'}), 500
@@ -210,7 +126,6 @@ def auto_annotate():
         return jsonify({'error': '请提供要标注的文本'}), 400
     
     input_text = data['text']
-    api_type = data.get('api_type')  # 支持前端指定API类型
     
     prompt = f"""
 请对以下文本进行实体标注，标出所有的人物、地名、时间、器物、概念。
@@ -226,8 +141,8 @@ def auto_annotate():
 
 请直接返回JSON格式的标注结果，格式如下：
 [
-  {"text": "实体文本", "label": "人物"},
-  {"text": "实体文本", "label": "地名"}
+  {{"text": "实体文本", "label": "人物"}},
+  {{"text": "实体文本", "label": "地名"}}
 ]
 
 注意：
@@ -237,8 +152,7 @@ def auto_annotate():
 """
     
     try:
-        # 确保使用有效的api_type，默认使用deepseek
-        response = generate_response(prompt, None, api_type or 'deepseek')
+        response = generate_response(prompt, DEEPSEEK_MODEL)
         # 尝试解析返回的JSON
         # 清理可能的markdown代码块标记
         cleaned = response.strip()
@@ -294,30 +208,13 @@ def auto_annotate():
 if __name__ == '__main__':
     print('=' * 60)
     print('古文解析服务启动中...')
-    print(f'默认使用模型: {DEFAULT_API_TYPE.upper()}')
-    
-    print('\n百度千帆ERNIE X1 API配置:')
-    if QIANFAN_API_KEY:
-        print(f'  API Key: {QIANFAN_API_KEY[:8]}...{QIANFAN_API_KEY[-4:]}')
-        print(f'  Model ID: {QIANFAN_MODEL_ID}')
-        print(f'  API URL: {QIANFAN_API_URL}')
-    else:
-        print('  未配置百度千帆API')
-    
-    print('\nDeepSeek API配置:')
+    print('使用 DeepSeek API')
     if DEEPSEEK_API_KEY:
-        print(f'  API Key: {DEEPSEEK_API_KEY[:8]}...{DEEPSEEK_API_KEY[-4:]}')
-        print(f'  Model ID: {DEEPSEEK_MODEL_ID}')
-        print(f'  API URL: {DEEPSEEK_API_URL}')
+        print(f'API Key: {DEEPSEEK_API_KEY[:8]}...{DEEPSEEK_API_KEY[-4:]}')
     else:
-        print('  未配置DeepSeek API')
-    
-    print('\n通用配置:')
-    print(f'  Temperature: {TEMPERATURE}')
-    print(f'  Max Tokens: {MAX_TOKENS}')
-    print(f'  Top P: {TOP_P}')
-    print(f'  Timeout: {TIMEOUT}s')
-    
-    print('\n服务地址: http://0.0.0.0:5004')
+        print('警告: 未设置 DEEPSEEK_API_KEY 环境变量!')
+        print('请设置环境变量后重启服务:')
+        print('  export DEEPSEEK_API_KEY=your_api_key_here')
+    print('服务地址: http://0.0.0.0:5004')
     print('=' * 60)
     app.run(host='0.0.0.0', port=5004, debug=False)

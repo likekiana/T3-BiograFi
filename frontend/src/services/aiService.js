@@ -10,11 +10,9 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 解析结果
    */
-  async analyzeClassicalText(text, model = 'deepseek-chat') {
+  async analyzeClassicalText(text, model = 'am-hrzab73jvugw') {
     try {
-      // 获取模型信息，确定apiType
-      const modelInfo = this.getAvailableModels().find(m => m.id === model) || {};
-      const result = await api.ai.analyzeText(text, model, modelInfo.apiType || 'deepseek');
+      const result = await api.ai.analyzeText(text, model);
       return result.result || '';
     } catch (error) {
       console.error('古文解析失败:', error);
@@ -29,11 +27,9 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 答案
    */
-  async askQuestion(text, question, model = 'deepseek-chat') {
+  async askQuestion(text, question, model = 'am-hrzab73jvugw') {
     try {
-      // 获取模型信息，确定apiType
-      const modelInfo = this.getAvailableModels().find(m => m.id === model) || {};
-      const result = await api.ai.askQuestion(text, question, model, modelInfo.apiType || 'deepseek');
+      const result = await api.ai.askQuestion(text, question, model);
       return result.result || '';
     } catch (error) {
       console.error('古文答疑失败:', error);
@@ -44,14 +40,11 @@ export const aiService = {
   /**
    * 自动实体标注
    * @param {string} text - 要标注的文本
-   * @param {string} model - 模型名称
    * @returns {Promise<Array>} 标注结果
    */
-  async autoAnnotateEntities(text, model = 'deepseek-chat') {
+  async autoAnnotateEntities(text) {
     try {
-      // 获取模型信息，确定apiType
-      const modelInfo = this.getAvailableModels().find(m => m.id === model) || {};
-      const result = await api.ai.autoAnnotate(text, modelInfo.apiType || 'deepseek');
+      const result = await api.ai.autoAnnotate(text);
       return result.annotations || [];
     } catch (error) {
       console.error('自动标注失败:', error);
@@ -67,17 +60,14 @@ export const aiService = {
     return [
       {
         id: 'deepseek-chat',
-        name: 'DeepSeek',
-        description: 'DeepSeek模型，适合各种文本生成任务',
-        recommended: true,
-        apiType: 'deepseek'
+        name: 'DeepSeek-V3',
+        description: '最新V3模型，速度快，效果好',
+        recommended: true
       },
       {
-        id: 'am-hrzab73jvugw',
-        name: 'ERNIE X1',
-        description: '百度千帆ERNIE X1模型，适合古文解析',
-        recommended: false,
-        apiType: 'qianfan'
+        id: 'deepseek-reasoner',
+        name: 'DeepSeek-R1',
+        description: '推理模型，深度分析，速度较慢'
       }
     ];
   }

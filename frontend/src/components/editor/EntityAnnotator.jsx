@@ -66,77 +66,59 @@ const EntityAnnotator = ({
 
   // 应用格式化（粗体、斜体、下划线、清除格式）
   const applyFormat = (formatType) => {
-    const selection = window.getSelection();
-    if (!selection.rangeCount || selection.isCollapsed) {
-      alert('请先选择要格式化的文本');
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    const selectedText = range.toString();
+    // 直接操作DOM会导致React虚拟DOM与实际DOM不一致
+    // 这里我们改为只处理编辑器中的格式化，预览框的格式化由编辑器内容驱动
+    if (!textareaRef.current) return;
     
-    let wrapper;
-    switch (formatType) {
-      case 'bold':
-        wrapper = document.createElement('b');
-        break;
-      case 'italic':
-        wrapper = document.createElement('i');
-        break;
-      case 'underline':
-        wrapper = document.createElement('u');
-        break;
-      default:
-        return;
-    }
-
+    const editor = textareaRef.current;
+    editor.focus();
+    
+    // 使用document.execCommand进行格式化，这是ContentEditable的标准方式
     try {
-      range.surroundContents(wrapper);
-      selection.removeAllRanges();
+      document.execCommand('formatBlock', false, 'div'); // 确保在块级元素内
       
-      // 触发内容更新
-      if (textareaRef.current) {
-        const newText = textareaRef.current.innerHTML;
-        // 调用父组件的更新函数（通过TextEditor传递）
-        const textEditorComponent = textareaRef.current.closest('.text-editor');
-        if (textEditorComponent) {
-          // 模拟input事件以触发更新
-          const inputEvent = new Event('input', { bubbles: true });
-          textareaRef.current.dispatchEvent(inputEvent);
-        }
+      switch (formatType) {
+        case 'bold':
+          document.execCommand('bold', false, null);
+          break;
+        case 'italic':
+          document.execCommand('italic', false, null);
+          break;
+        case 'underline':
+          document.execCommand('underline', false, null);
+          break;
+        default:
+          return;
       }
+      
+      // 触发input事件以更新React状态
+      const inputEvent = new Event('input', { bubbles: true });
+      editor.dispatchEvent(inputEvent);
     } catch (error) {
-      // 如果选择跨越了多个节点，使用替代方法
-      const fragment = range.extractContents();
-      wrapper.appendChild(fragment);
-      range.insertNode(wrapper);
-      
-      if (textareaRef.current) {
-        // 模拟input事件以触发更新
-        const inputEvent = new Event('input', { bubbles: true });
-        textareaRef.current.dispatchEvent(inputEvent);
-      }
+      console.error('应用格式失败:', error);
+      alert('应用格式失败，请重试');
     }
   };
 
   // 清除格式
   const clearFormat = () => {
-    const selection = window.getSelection();
-    if (!selection.rangeCount || selection.isCollapsed) {
-      alert('请先选择要清除格式的文本');
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    const fragment = range.extractContents();
-    const textContent = fragment.textContent;
-    const textNode = document.createTextNode(textContent);
-    range.insertNode(textNode);
+    // 直接操作DOM会导致React虚拟DOM与实际DOM不一致
+    // 这里我们改为只处理编辑器中的格式化，预览框的格式化由编辑器内容驱动
+    if (!textareaRef.current) return;
     
-    if (textareaRef.current) {
-      // 模拟input事件以触发更新
+    const editor = textareaRef.current;
+    editor.focus();
+    
+    try {
+      // 使用document.execCommand清除格式
+      document.execCommand('removeFormat', false, null);
+      
+      // 触发input事件以更新React状态
       const inputEvent = new Event('input', { bubbles: true });
-      textareaRef.current.dispatchEvent(inputEvent);
+      editor.dispatchEvent(inputEvent);
+    } catch (error) {
+      console.error('清除格式失败:', error);
+      alert('清除格式失败，请重试');
     }
   };
 
@@ -406,13 +388,17 @@ const EntityAnnotator = ({
     }
   }, [textareaRef, content, annotations, readOnly, isSelecting, getPlainText]);
 
-  // 设置定时检查选择状态
   // 渲染feather图标
   useEffect(() => {
     if (typeof window !== 'undefined' && window.feather) {
       // 延迟执行，确保DOM已经渲染完成
       const timer = setTimeout(() => {
-        window.feather.replace();
+        // 只替换当前组件内的图标
+        const annotatorElement = document.querySelector('.entity-annotator');
+        if (annotatorElement) {
+          const icons = annotatorElement.querySelectorAll('[data-feather]');
+          window.feather.replace(icons);
+        }
       }, 150);
       return () => clearTimeout(timer);
     }
@@ -420,6 +406,9 @@ const EntityAnnotator = ({
 
   useEffect(() => {
     if (readOnly) return;
+    
+    // 保存对元素的引用，确保清理时能正确移除事件监听器
+    let annotatedTextElement = null;
     
     const handleSelectionChange = () => {
       setTimeout(() => {
@@ -430,7 +419,7 @@ const EntityAnnotator = ({
     const handleMouseUp = (e) => {
       // 检查点击是否在文本编辑器或文本预览中
       const isInEditor = textareaRef?.current && textareaRef.current.contains(e.target);
-      const isInPreview = document.querySelector('.annotated-text')?.contains(e.target);
+      const isInPreview = annotatedTextElement && annotatedTextElement.contains(e.target);
       
       if (isInEditor || isInPreview) {
         setTimeout(() => {
@@ -441,7 +430,7 @@ const EntityAnnotator = ({
     
     const handleClick = (e) => {
       // 检查点击是否在文本预览中
-      const isInPreview = document.querySelector('.annotated-text')?.contains(e.target);
+      const isInPreview = annotatedTextElement && annotatedTextElement.contains(e.target);
       if (isInPreview) {
         handleSelectionChange();
       }
@@ -456,7 +445,7 @@ const EntityAnnotator = ({
     }
     
     // 为文本预览添加事件监听
-    const annotatedTextElement = document.querySelector('.annotated-text');
+    annotatedTextElement = document.querySelector('.annotated-text');
     if (annotatedTextElement) {
       annotatedTextElement.addEventListener('mouseup', handleMouseUp);
       annotatedTextElement.addEventListener('click', handleClick);
@@ -471,10 +460,13 @@ const EntityAnnotator = ({
     }, 300);
     
     return () => {
+      // 清理定时器
       if (selectionCheckInterval.current) {
         clearInterval(selectionCheckInterval.current);
+        selectionCheckInterval.current = null;
       }
       
+      // 清理文本编辑器事件监听
       if (textareaRef?.current) {
         const editor = textareaRef.current;
         editor.removeEventListener('mouseup', handleMouseUp);
@@ -482,12 +474,14 @@ const EntityAnnotator = ({
         editor.removeEventListener('click', handleSelectionChange);
       }
       
-      const annotatedTextElement = document.querySelector('.annotated-text');
+      // 清理文本预览事件监听（使用保存的引用）
       if (annotatedTextElement) {
         annotatedTextElement.removeEventListener('mouseup', handleMouseUp);
         annotatedTextElement.removeEventListener('click', handleClick);
+        annotatedTextElement = null;
       }
       
+      // 清理全局事件监听
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
   }, [textareaRef, checkSelection, readOnly]);
@@ -958,11 +952,12 @@ const EntityAnnotator = ({
 
     let lastIndex = 0;
     const elements = [];
+    let elementCounter = 0;
     
     // 先按开始位置排序
     const sortedAnnotations = [...annotations].sort((a, b) => a.start - b.start);
 
-    sortedAnnotations.forEach((annotation, index) => {
+    sortedAnnotations.forEach((annotation, annotationIndex) => {
       // 验证标注范围是否有效
       if (!validateAnnotation(annotation, plainText)) {
         console.warn('无效的标注，跳过:', annotation);
@@ -976,10 +971,10 @@ const EntityAnnotator = ({
         
         lines.forEach((line, lineIndex) => {
           if (lineIndex > 0) {
-            elements.push(<br key={`br-${lastIndex}-${lineIndex}`} />);
+            elements.push(<br key={`br-${elementCounter++}`} />);
           }
           elements.push(
-            <span key={`text-${lastIndex}-${lineIndex}`}>
+            <span key={`text-${elementCounter++}`}>
               {line}
             </span>
           );
@@ -994,7 +989,7 @@ const EntityAnnotator = ({
       
       annotationLines.forEach((line, lineIndex) => {
         if (lineIndex > 0) {
-          elements.push(<br key={`annotation-br-${index}-${lineIndex}`} />);
+          elements.push(<br key={`annotation-br-${elementCounter++}`} />);
         }
         
         if (line.trim()) {
@@ -1002,9 +997,12 @@ const EntityAnnotator = ({
           const labelConfig = entityLabels.find(l => l.value === annotation.label);
           const color = labelConfig ? labelConfig.color : '#64748b'; // 默认灰色
           
+          // 使用稳定的唯一key
+          const annotationKey = annotation.id ? `annotation-${annotation.id}-${lineIndex}` : `annotation-${annotationIndex}-${lineIndex}-${elementCounter++}`;
+          
           elements.push(
             <span
-              key={`annotation-${annotation.id || index}-${lineIndex}`}
+              key={annotationKey}
               className={`entity-annotation ${
                 currentHoverAnnotation?.id === annotation.id ? 'annotation-highlight' : ''
               } ${
@@ -1018,7 +1016,7 @@ const EntityAnnotator = ({
               title={`${annotation.label}: ${annotation.text}${
                 annotation.source ? ` (${annotation.source})` : ''
               }${annotation.confidence ? ` 置信度: ${(annotation.confidence * 100).toFixed(1)}%` : ''}`}
-              onClick={(e) => handleAnnotationClick(annotation, index, e)}
+              onClick={(e) => handleAnnotationClick(annotation, annotationIndex, e)}
               onMouseEnter={() => setCurrentHoverAnnotation(annotation)}
               onMouseLeave={() => setCurrentHoverAnnotation(null)}
             >
@@ -1039,7 +1037,7 @@ const EntityAnnotator = ({
           );
         } else {
           elements.push(
-            <span key={`annotation-empty-${index}-${lineIndex}`}>
+            <span key={`annotation-empty-${elementCounter++}`}>
               {line}
             </span>
           );
@@ -1056,10 +1054,10 @@ const EntityAnnotator = ({
       
       lines.forEach((line, lineIndex) => {
         if (lineIndex > 0) {
-          elements.push(<br key={`remaining-br-${lastIndex}-${lineIndex}`} />);
+          elements.push(<br key={`remaining-br-${elementCounter++}`} />);
         }
         elements.push(
-          <span key={`remaining-text-${lastIndex}-${lineIndex}`}>
+          <span key={`remaining-text-${elementCounter++}`}>
             {line}
           </span>
         );
