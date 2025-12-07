@@ -1240,21 +1240,6 @@ const EntityAnnotator = ({
             </div>
           </div>
           
-          {/* 文本预览格式化工具栏 */}
-          <div className="editor-toolbar">
-            <button className="toolbar-btn" title="粗体" onClick={() => applyFormat('bold')}>
-              <i data-feather="bold"></i>
-            </button>
-            <button className="toolbar-btn" title="斜体" onClick={() => applyFormat('italic')}>
-              <i data-feather="italic"></i>
-            </button>
-            <button className="toolbar-btn" title="下划线" onClick={() => applyFormat('underline')}>
-              <i data-feather="underline"></i>
-            </button>
-            <button className="toolbar-btn" title="清除格式" onClick={clearFormat}>
-              <i data-feather="type"></i>
-            </button>
-          </div>
           
           <div 
             className="annotated-text contenteditable"

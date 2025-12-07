@@ -1,5 +1,4 @@
-// src/components/editor/Segmentation.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { segmentationService } from '../../services/segmentationService';
 import '../../styles/components/Segmentation.css';
 
@@ -44,6 +43,147 @@ const Segmentation = ({ content, onApplySegmentation }) => {
     return () => clearTimeout(timer);
   }, [loading]);
 
+  // 清理HTML标签，确保标签正确闭合
+  const cleanHTMLTags = useCallback((html) => {
+    if (!html) return html;
+    
+    // 修复常见的标签嵌套问题
+    const tagStack = [];
+    let result = '';
+    let i = 0;
+    
+    while (i < html.length) {
+      // 检查是否是开始标签
+      if (html[i] === '<' && i + 1 < html.length && html[i + 1] !== '/') {
+        // 找到标签结束位置
+        let j = i + 1;
+        while (j < html.length && html[j] !== '>') j++;
+        
+        if (j < html.length) {
+          const tagContent = html.substring(i + 1, j);
+          const tagMatch = tagContent.match(/^([a-zA-Z]+)/);
+          
+          if (tagMatch) {
+            const tagName = tagMatch[1].toLowerCase();
+            // 只处理 b, i, u 标签
+            if (['b', 'i', 'u', 'strong', 'em'].includes(tagName)) {
+              tagStack.push(tagName);
+              result += `<${tagContent}>`;
+              i = j + 1;
+              continue;
+            }
+          }
+        }
+      }
+      
+      // 检查是否是结束标签
+      if (html[i] === '<' && i + 1 < html.length && html[i + 1] === '/') {
+        let j = i + 2;
+        while (j < html.length && html[j] !== '>') j++;
+        
+        if (j < html.length) {
+          const tagContent = html.substring(i + 2, j);
+          const tagMatch = tagContent.match(/^([a-zA-Z]+)/);
+          
+          if (tagMatch) {
+            const tagName = tagMatch[1].toLowerCase();
+            if (['b', 'i', 'u', 'strong', 'em'].includes(tagName)) {
+              // 查找对应的开始标签
+              const lastIndex = tagStack.lastIndexOf(tagName);
+              if (lastIndex !== -1) {
+                // 关闭这个标签及其之前的所有未关闭标签
+                for (let k = tagStack.length - 1; k >= lastIndex; k--) {
+                  const closingTag = tagStack[k];
+                  result += `</${closingTag}>`;
+                }
+                tagStack.splice(lastIndex);
+              } else {
+                // 忽略无效的结束标签
+                i = j + 1;
+                continue;
+              }
+            }
+          }
+        }
+      }
+      
+      // 添加普通字符
+      result += html[i];
+      i++;
+    }
+    
+    // 关闭所有未闭合的标签
+    while (tagStack.length > 0) {
+      const tag = tagStack.pop();
+      result += `</${tag}>`;
+    }
+    
+    return result;
+  }, []);
+
+  // 简化HTML，移除多余的嵌套标签
+  const simplifyHTML = useCallback((html) => {
+    if (!html) return html;
+    
+    // 提取纯文本内容，但保留基本格式
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // 遍历所有节点，移除多余的嵌套
+    const processNode = (node) => {
+      // 只处理元素节点
+      if (node.nodeType !== 1) return node;
+      
+      const tagName = node.tagName.toLowerCase();
+      
+      // 只处理 b, i, u, strong, em 标签
+      if (!['b', 'i', 'u', 'strong', 'em'].includes(tagName)) {
+        // 对于其他标签，保留其子节点
+        const fragment = document.createDocumentFragment();
+        Array.from(node.childNodes).forEach(child => {
+          fragment.appendChild(processNode(child));
+        });
+        return fragment;
+      }
+      
+      // 处理格式标签
+      const children = Array.from(node.childNodes);
+      
+      // 如果子节点只有一个且是同类型标签，合并它们
+      if (children.length === 1 && 
+          children[0].nodeType === 1 && 
+          children[0].tagName.toLowerCase() === tagName) {
+        return processNode(children[0]);
+      }
+      
+      // 处理子节点，确保不重复嵌套相同标签
+      const newElement = document.createElement(tagName);
+      children.forEach(child => {
+        const processedChild = processNode(child);
+        
+        // 如果子节点是同类型元素，取其子节点
+        if (processedChild.nodeType === 1 && 
+            processedChild.tagName.toLowerCase() === tagName) {
+          Array.from(processedChild.childNodes).forEach(grandChild => {
+            newElement.appendChild(grandChild.cloneNode(true));
+          });
+        } else {
+          newElement.appendChild(processedChild.cloneNode(true));
+        }
+      });
+      
+      return newElement;
+    };
+    
+    const processed = processNode(tempDiv);
+    
+    // 转回HTML字符串
+    const resultDiv = document.createElement('div');
+    resultDiv.appendChild(processed.cloneNode(true));
+    
+    return resultDiv.innerHTML;
+  }, []);
+
   const handleSegment = async () => {
     if (!content || !content.trim()) {
       alert('请输入要分词的文本');
@@ -55,19 +195,32 @@ const Segmentation = ({ content, onApplySegmentation }) => {
     try {
       console.log('开始分词处理...');
       
-      const segmentedText = await segmentationService.segmentTextPreserveFormat(content);
+      // 先清理和简化HTML
+      const cleanedHTML = cleanHTMLTags(content);
+      const simplifiedHTML = simplifyHTML(cleanedHTML);
       
-      console.log('分词完成');
+      console.log('清理后的HTML:', simplifiedHTML.substring(0, 200));
+      
+      // 分词处理
+      const segmentedText = await segmentationService.segmentTextPreserveFormat(simplifiedHTML);
+      
+      console.log('分词完成，结果长度:', segmentedText?.length);
+      
+      // 再次清理分词结果
+      const finalCleanedHTML = cleanHTMLTags(segmentedText);
+      const finalSimplifiedHTML = simplifyHTML(finalCleanedHTML);
+      
+      console.log('最终处理后的HTML:', finalSimplifiedHTML?.substring(0, 200));
       
       // 检查分词是否有变化
-      if (segmentedText === content || !segmentedText) {
+      if (!finalSimplifiedHTML || finalSimplifiedHTML === content) {
         alert('分词失败或没有需要分词的内容');
         setLoading(false);
         return;
       }
       
       if (onApplySegmentation) {
-        onApplySegmentation(segmentedText);
+        onApplySegmentation(finalSimplifiedHTML);
       }
       
     } catch (error) {
@@ -84,7 +237,7 @@ const Segmentation = ({ content, onApplySegmentation }) => {
       className="segment-btn"
       onClick={handleSegment}
       disabled={loading || !content || !content.trim()}
-      title="AI分词"
+      title="自动分词"
     >
       {loading ? (
         <>
@@ -94,7 +247,6 @@ const Segmentation = ({ content, onApplySegmentation }) => {
       ) : (
         <>
           <i data-feather="divide-square"></i>
-          AI分词
         </>
       )}
     </button>

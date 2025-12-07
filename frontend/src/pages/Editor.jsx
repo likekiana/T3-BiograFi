@@ -987,292 +987,305 @@ const Editor = ({ document, project, onBack, onSave }) => {
     }
   };
 
-  return (
-    <div className="editor-container">
-      <div className="editor-header">
-        <div className="header-top">
-          <h2 className="editor-title">
-            {document.name} - {t('document_editor')}
-          </h2>
+// src/pages/Editor.js
+// ... 前面的import和状态定义保持不变 ...
 
-          {/* 可视化按钮 */}
-          <button
-            className="visualization-btn"
-            onClick={() => {
-              const documentData = {
-                content: content,
-                annotations: annotations,
-                title: document.name,
-                author: author,
-                documentId: document.id
-              };
-              localStorage.setItem('currentDocument', JSON.stringify(documentData));
-              navigate('/visualization');
-            }}
-            disabled={!content.trim()}
-          >
-            <i data-feather="bar-chart-2" data-rendered="false"></i>
-            数据可视化
-          </button>
-        </div>
+return (
+  <div className="editor-container">
+    <div className="editor-header">
+      <div className="header-top">
+        <h2 className="editor-title">
+          {document.name} - {t('document_editor')}
+        </h2>
 
-        <div className="editor-tabs">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="editor-secondary-toolbar">
-          <button
-            className={`toolbar-btn ${showFindReplace ? 'active' : ''}`}
-            title="查找与替换"
-            onClick={toggleFindReplacePanel}
-          >
-            <i data-feather="search" data-rendered="false"></i>
-            <span>查找</span>
-          </button>
-          <button className="toolbar-btn" title="复制" onClick={handleCopySelection}>
-            <i data-feather="copy" data-rendered="false"></i>
-            <span>复制</span>
-          </button>
-          <button className="toolbar-btn" title="剪切" onClick={handleCutSelection}>
-            <i data-feather="scissors" data-rendered="false"></i>
-            <span>剪切</span>
-          </button>
-          <button className="toolbar-btn" title="粘贴" onClick={() => handlePasteFromClipboard(false)}>
-            <i data-feather="clipboard" data-rendered="false"></i>
-            <span>粘贴</span>
-          </button>
-          <button className="toolbar-btn" title="粘贴为文本" onClick={() => handlePasteFromClipboard(true)}>
-            <i data-feather="file-text" data-rendered="false"></i>
-            <span>纯文本</span>
-          </button>
-          <button className="toolbar-btn" title="全选" onClick={handleSelectAll}>
-            <i data-feather="square" data-rendered="false"></i>
-            <span>全选</span>
-          </button>
-          <button className="toolbar-btn" title="删除" onClick={handleDeleteSelection}>
-            <i data-feather="trash-2" data-rendered="false"></i>
-            <span>删除</span>
-          </button>
-          <button className="toolbar-btn" title="自动标点" onClick={handleAutoPunctuation}>
-            <i data-feather="code" data-rendered="false"></i>
-            <span>标点</span>
-          </button>
-
-          {/* AI分词按钮 - 内联版本 */}
-          <Segmentation
-            content={content}
-            onApplySegmentation={handleApplySegmentation}
-          />
-
-          <div className="toolbar-divider" aria-hidden="true"></div>
-          <div className="toolbar-more-wrapper">
-            <button
-              className={`toolbar-btn ${showMoreMenu ? 'active' : ''}`}
-              title="显示或隐藏其他工具栏项"
-              onClick={handleToolbarMoreToggle}
-            >
-              <i data-feather="more-horizontal" data-rendered="false"></i>
-            </button>
-            {showMoreMenu && (
-              <div className="toolbar-more-popover">
-                <div className="toolbar-more-group">
-                  {['卷', '篇', '章', '节', '小节'].map(item => (
-                    <button key={item} className="toolbar-more-item" onClick={() => setTemporaryHint(`已选择 ${item}`)}>
-                      {item}
-                    </button>
-                  ))}
-                </div>
-                <div className="toolbar-more-group">
-                  {['注', '疏', '引', '作者', '目录'].map(item => (
-                    <button key={item} className="toolbar-more-item" onClick={() => setTemporaryHint(`已选择 ${item}`)}>
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {toolbarHint && (
-          <div className="toolbar-hint-banner">{toolbarHint}</div>
-        )}
+        {/* 可视化按钮 */}
+        <button
+          className="visualization-btn"
+          onClick={() => {
+            const documentData = {
+              content: content,
+              annotations: annotations,
+              title: document.name,
+              author: author,
+              documentId: document.id
+            };
+            localStorage.setItem('currentDocument', JSON.stringify(documentData));
+            navigate('/visualization');
+          }}
+          disabled={!content.trim()}
+        >
+          <i data-feather="bar-chart-2" data-rendered="false"></i>
+          数据可视化
+        </button>
       </div>
 
-      <div className="editor-content">
-        <div
-          className="editor-main"
-          style={isNarrow ? undefined : { width: `${leftWidth}%` }}
-        >
-          <div className="editor-section">
-            <TextEditor
-              content={content}
-              onChange={handleContentChange}
-              placeholder={getEditorPlaceholder(activeTab)}
-              textareaRef={textareaRef}
-              readOnly={readOnly}
+      <div className="editor-tabs">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.name}
+          </button>
+        ))}
+      </div>
+
+      {/* 文档信息行 - 移到工具栏上方，与标签页同一区域 */}
+      <div className="editor-document-info-row">
+        <div className="document-info-compact">
+          <div className="info-group">
+            <label>文档:</label>
+            <input
+              type="text"
+              value={documentName}
+              onChange={(e) => handleDocumentNameChange(e.target.value)}
+              placeholder="请输入文档名称"
+              className="author-input-compact"
+              style={{ width: '250px' }}
             />
+          </div>
+          <div className="info-group">
+            <label>作者:</label>
+            <input
+              type="text"
+              value={author}
+              onChange={(e) => handleAuthorChange(e.target.value)}
+              placeholder={t('enter_author')}
+              className="author-input-compact"
+            />
+          </div>
+          <button
+            className="save-btn-compact"
+            onClick={handleManualSave}
+            disabled={saveStatus === 'saving'}
+            title={saveStatus === 'saving' ? '保存中...' : '保存文档'}
+          >
+            <i data-feather="save" data-rendered="false"></i>
+            {saveStatus === 'saving' ? '保存中' : t('save')}
+          </button>
+          
+          {saveStatus === 'saved' && (
+            <div className="save-status success compact">
+              <i data-feather="check" data-rendered="false"></i>
+              <span>已保存 {lastSaved}</span>
+            </div>
+          )}
 
-            {showFindReplace && (
-              <div className="floating-panel find-replace-panel">
-                <div className="panel-header">
-                  <span>查找和替换</span>
-                  <button className="panel-close" onClick={toggleFindReplacePanel} title="关闭">
-                    ×
+          {saveStatus === 'error' && (
+            <div className="save-status error compact">
+              <i data-feather="alert-circle" data-rendered="false"></i>
+              <span>保存失败</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 工具栏按钮行 */}
+      <div className="editor-secondary-toolbar">
+        <button
+          className={`toolbar-btn ${showFindReplace ? 'active' : ''}`}
+          title="查找与替换"
+          onClick={toggleFindReplacePanel}
+        >
+          <i data-feather="search" data-rendered="false"></i>
+          <span>查找</span>
+        </button>
+        <button className="toolbar-btn" title="复制" onClick={handleCopySelection}>
+          <i data-feather="copy" data-rendered="false"></i>
+          <span>复制</span>
+        </button>
+        <button className="toolbar-btn" title="剪切" onClick={handleCutSelection}>
+          <i data-feather="scissors" data-rendered="false"></i>
+          <span>剪切</span>
+        </button>
+        <button className="toolbar-btn" title="粘贴" onClick={() => handlePasteFromClipboard(false)}>
+          <i data-feather="clipboard" data-rendered="false"></i>
+          <span>粘贴</span>
+        </button>
+        <button className="toolbar-btn" title="粘贴为文本" onClick={() => handlePasteFromClipboard(true)}>
+          <i data-feather="file-text" data-rendered="false"></i>
+          <span>纯文本</span>
+        </button>
+        <button className="toolbar-btn" title="全选" onClick={handleSelectAll}>
+          <i data-feather="square" data-rendered="false"></i>
+          <span>全选</span>
+        </button>
+        <button className="toolbar-btn" title="删除" onClick={handleDeleteSelection}>
+          <i data-feather="trash-2" data-rendered="false"></i>
+          <span>删除</span>
+        </button>
+        <button className="toolbar-btn" title="自动标点" onClick={handleAutoPunctuation}>
+          <i data-feather="code" data-rendered="false"></i>
+          <span>标点</span>
+        </button>
+
+        {/* AI分词按钮 - 内联版本 */}
+        <Segmentation
+          content={content}
+          onApplySegmentation={handleApplySegmentation}
+        />
+
+        <div className="toolbar-divider" aria-hidden="true"></div>
+        <div className="toolbar-more-wrapper">
+          <button
+            className={`toolbar-btn ${showMoreMenu ? 'active' : ''}`}
+            title="显示或隐藏其他工具栏项"
+            onClick={handleToolbarMoreToggle}
+          >
+            <i data-feather="more-horizontal" data-rendered="false"></i>
+          </button>
+          {showMoreMenu && (
+            <div className="toolbar-more-popover">
+              <div className="toolbar-more-group">
+                {['卷', '篇', '章', '节', '小节'].map(item => (
+                  <button key={item} className="toolbar-more-item" onClick={() => setTemporaryHint(`已选择 ${item}`)}>
+                    {item}
                   </button>
-                </div>
+                ))}
+              </div>
+              <div className="toolbar-more-group">
+                {['注', '疏', '引', '作者', '目录'].map(item => (
+                  <button key={item} className="toolbar-more-item" onClick={() => setTemporaryHint(`已选择 ${item}`)}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
-                <div className="panel-body">
-                  <label>寻找</label>
-                  <div className="input-with-controls">
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="输入要查找的内容"
-                    />
-                    <div className="input-controls">
-                      <button onClick={() => handleFind('prev')} title="上一个">
-                        <i data-feather="chevron-up" data-rendered="false"></i>
-                      </button>
-                      <button onClick={() => handleFind('next')} title="下一个">
-                        <i data-feather="chevron-down" data-rendered="false"></i>
-                      </button>
-                    </div>
-                  </div>
+      {toolbarHint && (
+        <div className="toolbar-hint-banner">{toolbarHint}</div>
+      )}
+    </div>
 
-                  <label>替换为</label>
+    <div className="editor-content">
+      <div
+        className="editor-main"
+        style={isNarrow ? undefined : { width: `${leftWidth}%` }}
+      >
+        <div className="editor-section">
+          <TextEditor
+            content={content}
+            onChange={handleContentChange}
+            placeholder={getEditorPlaceholder(activeTab)}
+            textareaRef={textareaRef}
+            readOnly={readOnly}
+            // 添加以下props用于标注功能
+            documentId={document?.id}
+            annotations={annotations}
+            onAddAnnotation={handleAddAnnotation}
+            onDeleteAnnotation={handleDeleteAnnotation}
+            onUpdateAnnotation={handleUpdateAnnotation}
+          />
+
+          {showFindReplace && (
+            <div className="floating-panel find-replace-panel">
+              <div className="panel-header">
+                <span>查找和替换</span>
+                <button className="panel-close" onClick={toggleFindReplacePanel} title="关闭">
+                  ×
+                </button>
+              </div>
+
+              <div className="panel-body">
+                <label>寻找</label>
+                <div className="input-with-controls">
                   <input
                     type="text"
-                    value={replaceTerm}
-                    onChange={(e) => setReplaceTerm(e.target.value)}
-                    placeholder="替换后的内容"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="输入要查找的内容"
                   />
-
-                  <div className="panel-actions">
-                    <button className="primary" onClick={() => handleFind('next')}>寻找</button>
-                    <button onClick={handleReplaceCurrent}>替换</button>
-                    <button onClick={handleReplaceAll}>替换全部</button>
-                  </div>
-
-                  <div className="panel-footer">
-                    <button
-                      className="options-trigger"
-                      onClick={() => setShowFindOptions(prev => !prev)}
-                    >
-                      <i data-feather="settings" data-rendered="false"></i>
-                      {showFindOptions ? '隐藏选项' : '更多选项'}
+                  <div className="input-controls">
+                    <button onClick={() => handleFind('prev')} title="上一个">
+                      <i data-feather="chevron-up" data-rendered="false"></i>
                     </button>
-                    {findMessage && <span className="find-status">{findMessage}</span>}
+                    <button onClick={() => handleFind('next')} title="下一个">
+                      <i data-feather="chevron-down" data-rendered="false"></i>
+                    </button>
                   </div>
-
-                  {showFindOptions && (
-                    <div className="find-options">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={findOptions.matchCase}
-                          onChange={(e) => setFindOptions(prev => ({ ...prev, matchCase: e.target.checked }))}
-                        />
-                        大小写匹配
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={findOptions.wholeWord}
-                          onChange={(e) => setFindOptions(prev => ({ ...prev, wholeWord: e.target.checked }))}
-                        />
-                        全字匹配
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={findOptions.selectionOnly}
-                          onChange={(e) => setFindOptions(prev => ({ ...prev, selectionOnly: e.target.checked }))}
-                        />
-                        在选中范围内搜索
-                      </label>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {!isNarrow && (
-          <div {...dividerProps}>
-            <div className="divider-handle"></div>
-          </div>
-        )}
-
-        <div
-          className="editor-sidebar"
-          style={isNarrow ? undefined : { width: `${100 - leftWidth}%` }}
-        >
-          <div className="sidebar-section document-info">
-            <div className="document-info-compact">
-              <div className="info-group">
-                <label>文档:</label>
+                <label>替换为</label>
                 <input
                   type="text"
-                  value={documentName}
-                  onChange={(e) => handleDocumentNameChange(e.target.value)}
-                  placeholder="请输入文档名称"
-                  className="author-input-compact"
+                  value={replaceTerm}
+                  onChange={(e) => setReplaceTerm(e.target.value)}
+                  placeholder="替换后的内容"
                 />
+
+                <div className="panel-actions">
+                  <button className="primary" onClick={() => handleFind('next')}>寻找</button>
+                  <button onClick={handleReplaceCurrent}>替换</button>
+                  <button onClick={handleReplaceAll}>替换全部</button>
+                </div>
+
+                <div className="panel-footer">
+                  <button
+                    className="options-trigger"
+                    onClick={() => setShowFindOptions(prev => !prev)}
+                  >
+                    <i data-feather="settings" data-rendered="false"></i>
+                    {showFindOptions ? '隐藏选项' : '更多选项'}
+                  </button>
+                  {findMessage && <span className="find-status">{findMessage}</span>}
+                </div>
+
+                {showFindOptions && (
+                  <div className="find-options">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={findOptions.matchCase}
+                        onChange={(e) => setFindOptions(prev => ({ ...prev, matchCase: e.target.checked }))}
+                      />
+                      大小写匹配
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={findOptions.wholeWord}
+                        onChange={(e) => setFindOptions(prev => ({ ...prev, wholeWord: e.target.checked }))}
+                      />
+                      全字匹配
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={findOptions.selectionOnly}
+                        onChange={(e) => setFindOptions(prev => ({ ...prev, selectionOnly: e.target.checked }))}
+                      />
+                      在选中范围内搜索
+                    </label>
+                  </div>
+                )}
               </div>
-              <div className="info-group">
-                <label>作者:</label>
-                <input
-                  type="text"
-                  value={author}
-                  onChange={(e) => handleAuthorChange(e.target.value)}
-                  placeholder={t('enter_author')}
-                  className="author-input-compact"
-                />
-              </div>
-              <button
-                className="save-btn-compact"
-                onClick={handleManualSave}
-                disabled={saveStatus === 'saving'}
-                title={saveStatus === 'saving' ? '保存中...' : '保存文档'}
-              >
-                <i data-feather="save" data-rendered="false"></i>
-                {saveStatus === 'saving' ? '保存中' : t('save')}
-              </button>
             </div>
+          )}
+        </div>
+      </div>
 
-            {saveStatus === 'saved' && (
-              <div className="save-status success">
-                <i data-feather="check" data-rendered="false"></i>
-                <span>已保存 {lastSaved}</span>
-              </div>
-            )}
+      {!isNarrow && (
+        <div {...dividerProps}>
+          <div className="divider-handle"></div>
+        </div>
+      )}
 
-            {saveStatus === 'error' && (
-              <div className="save-status error">
-                <i data-feather="alert-circle" data-rendered="false"></i>
-                <span>保存失败</span>
-              </div>
-            )}
-          </div>
-
-          <div className="sidebar-section">
-            {renderSidebarSection()}
-          </div>
+      <div
+        className="editor-sidebar"
+        style={isNarrow ? undefined : { width: `${100 - leftWidth}%` }}
+      >
+        {/* 移除侧边栏中的文档信息部分，只保留标注功能 */}
+        <div className="sidebar-section">
+          {renderSidebarSection()}
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default Editor;
