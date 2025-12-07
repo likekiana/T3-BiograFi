@@ -986,7 +986,28 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
 
   return (
     <div className="location-map">
-      <h3>地点事件分布图</h3>
+      <div className="location-map-title">
+
+        {/* 地点事件分布图 */}
+        <span style={{
+          fontWeight: 700,
+          fontSize: '2rem',
+          background: 'linear-gradient(90deg, #007bff 0%, #00c6ff 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '2px'
+        }}>
+          地点事件分布图
+        </span>
+        <div style={{
+          height: 2,
+          width: 120,
+          background: 'linear-gradient(90deg, #007bff 0%, #00c6ff 100%)',
+          borderRadius: 2,
+          margin: '8px auto 0'
+        }} />
+      </div>
+
       <div className="map-container">
         <div className="amap-container" style={{ position: 'relative' }}>
           {/* 地图容器 */}

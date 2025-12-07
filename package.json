@@ -3,6 +3,10 @@
     "concurrently": "^9.2.1"
   },
   "dependencies": {
-    "react-feather": "^2.0.10"
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@react-three/postprocessing": "^3.0.4",
+    "react-feather": "^2.0.10",
+    "three": "^0.181.2"
   }
 }
