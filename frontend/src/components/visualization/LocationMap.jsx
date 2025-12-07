@@ -43,10 +43,10 @@ const getStyleById = (id) => {
 };
 
 // 全局状态管理 - 优化为立即加载
-let globalMapInstance = null;
-let isAMapLoaded = false;
-let isMapInitializing = false;
-let _locationsCache = null;
+// let globalMapInstance = null; // 【删除】不再使用全局实例
+let isAMapLoaded = false; // 【保留】用于预加载状态管理
+// let isMapInitializing = false; // 【删除】不再需要
+let _locationsCache = null; //缓存数据
 
 // 获取缓存的函数
 function getLocationsCache() {
@@ -248,7 +248,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // 清理时保留地图实例，以便复用
+      // 清理时移除标记，但销毁逻辑已移至地图初始化 useEffect 的清理函数
       markersRef.current.forEach(marker => {
         if (marker && marker.setMap) {
           marker.setMap(null);
@@ -292,21 +292,29 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     return () => clearInterval(checkInterval);
   }, []);
 
-  // 优化：立即初始化地图
+  // 优化：标准 React 地图初始化
   useEffect(() => {
-    if (!isAMapReady || !mapRef.current || globalMapInstance || isMapInitializing) {
+    // 1. 基础检查
+    if (!isAMapReady || !mapRef.current) {
       return;
     }
 
+    // 防止重复初始化
+    if (mapInstance) {
+       return; 
+    }
+
     console.log('Initializing map...');
-    isMapInitializing = true;
+
+    let map = null;
+    // isMapInitializing = true; // 【删除】
 
     try {
       // 再次检查 AMap 是否存在
       if (!window.AMap || !window.AMap.Map) {
         console.error('AMap not found, retrying...');
         setIsAMapReady(false);
-        isMapInitializing = false;
+        // isMapInitializing = false; // 【删除】
         // 重新触发检查
         const script = document.createElement('script');
         script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}`;
@@ -338,9 +346,9 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       };
 
       console.log('Creating AMap with options:', mapOptions);
-      const map = new window.AMap.Map(mapRef.current, mapOptions);
+      map = new window.AMap.Map(mapRef.current, mapOptions); // 【修改】将map改为局部变量
 
-      globalMapInstance = map;
+      // globalMapInstance = map; // 【核心修复：删除】不再使用全局实例
 
       if (isMountedRef.current) {
         setMapInstance(map);
@@ -349,7 +357,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       console.log('Map initialized successfully');
     } catch (error) {
       console.error('Map initialization failed:', error);
-      isMapInitializing = false;
+      // isMapInitializing = false; // 【删除】
 
       // 显示错误信息
       if (mapRef.current) {
@@ -382,9 +390,15 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       }
     }
 
+    // 【核心修复：添加 map.destroy()】确保组件卸载时彻底销毁地图
     return () => {
-      // 不清除全局地图实例，以便复用
-      isMapInitializing = false;
+      console.log('Destroying map instance');
+      if (map) {
+        map.destroy(); // 关键！彻底销毁地图，释放 WebGL 上下文
+      }
+      if (isMountedRef.current) {
+        setMapInstance(null); // 清除 React State 中的引用
+      }
     };
   }, [isAMapReady, currentMapStyle]);
 
@@ -533,7 +547,12 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       if (uncachedLocations.length > 0) {
         const results = await smartGeocodeLocations(uncachedLocations);
         if (isMountedRef.current && results.length > 0) {
-          setLocationsWithCoords(prev => [...prev, ...results]);
+          // 确保新结果合并时不会产生重复
+          setLocationsWithCoords(prev => {
+            const existingNames = new Set(prev.map(l => l.name));
+            const newValidResults = results.filter(r => !existingNames.has(r.name));
+            return [...prev, ...newValidResults];
+          });
         }
       }
     };
@@ -618,6 +637,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       try {
         // 1. 确保插件已加载 (使用官方推荐的 AMap.plugin 方式)
         if (!window.AMap.HeatMap) {
+          console.log('Heatmap plugin not loaded, loading...');
           await new Promise((resolve) => {
             window.AMap.plugin(['AMap.HeatMap'], () => {
               resolve();
@@ -672,7 +692,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
         window.heatmapInstance = heatmap;
         setIsGeneratingHeatmap(false);
 
-        // 调整视野 - 修复：增加由 NaN 引起崩溃的防护
+        // 调整视野 - 增加由 NaN 引起崩溃的防护
         setTimeout(() => {
           if (mapInstance && points.length > 0) {
             const bounds = new window.AMap.Bounds();
@@ -728,6 +748,9 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       const addMarkersBatch = (start, end) => {
         for (let i = start; i < Math.min(end, locationsWithCoords.length); i++) {
           const location = locationsWithCoords[i];
+          // 增加安全检查，防止坐标无效导致崩溃
+          if (!location.coordinates || !Number.isFinite(location.coordinates[0])) continue;
+
           try {
             const markerContent = createMarkerContent(location);
             const marker = new window.AMap.Marker({
