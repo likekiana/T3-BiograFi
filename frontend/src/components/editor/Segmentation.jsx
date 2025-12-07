@@ -5,62 +5,42 @@ import '../../styles/components/Segmentation.css';
 
 const Segmentation = ({ content, onApplySegmentation }) => {
   const [loading, setLoading] = useState(false);
-  const iconRef = useRef(null);
-  const isRendered = useRef(false);
+  const buttonRef = useRef(null);
+  const isMounted = useRef(true);
 
-  // 只在组件挂载时渲染一次图标
+  // 组件卸载时标记
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.feather || isRendered.current) {
-      return;
-    }
-
-    const renderIcon = () => {
-      if (iconRef.current && window.feather) {
-        // 只渲染当前组件的图标
-        const iconElement = iconRef.current.querySelector('i[data-feather]');
-        if (iconElement) {
-          // 先清除可能存在的重复SVG
-          const existingSvg = iconElement.parentNode.querySelector('svg');
-          if (existingSvg && existingSvg.parentNode === iconElement.parentNode) {
-            existingSvg.remove();
-          }
-          
-          // 渲染图标
-          window.feather.replace(iconElement);
-          isRendered.current = true;
-        }
-      }
+    return () => {
+      isMounted.current = false;
     };
-
-    // 使用较短的延迟确保DOM已更新
-    const timer = setTimeout(renderIcon, 50);
-    return () => clearTimeout(timer);
   }, []);
 
-  // 当loading状态变化时重新渲染图标（从加载状态恢复时）
+  // 当loading状态变化时渲染图标
   useEffect(() => {
     if (loading || typeof window === 'undefined' || !window.feather) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      if (iconRef.current) {
-        const iconElement = iconRef.current.querySelector('i[data-feather]');
+    const renderIcon = () => {
+      // 检查组件是否已卸载
+      if (!isMounted.current || !buttonRef.current) {
+        return;
+      }
+
+      try {
+        // 确保DOM元素存在
+        const iconElement = buttonRef.current.querySelector('i[data-feather]');
         if (iconElement) {
-          // 清除可能存在的SVG
-          const svgs = iconElement.parentNode.querySelectorAll('svg');
-          svgs.forEach(svg => {
-            if (svg.parentNode === iconElement.parentNode) {
-              svg.remove();
-            }
-          });
-          
-          // 重新渲染
+          // 渲染图标
           window.feather.replace(iconElement);
         }
+      } catch (error) {
+        console.error('渲染图标失败:', error);
       }
-    }, 100);
+    };
 
+    // 使用较短的延迟确保DOM已更新
+    const timer = setTimeout(renderIcon, 100);
     return () => clearTimeout(timer);
   }, [loading]);
 
@@ -100,7 +80,7 @@ const Segmentation = ({ content, onApplySegmentation }) => {
 
   return (
     <button
-      ref={iconRef}
+      ref={buttonRef}
       className="segment-btn"
       onClick={handleSegment}
       disabled={loading || !content || !content.trim()}

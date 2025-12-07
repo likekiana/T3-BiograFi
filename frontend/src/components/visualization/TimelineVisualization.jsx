@@ -1,8 +1,20 @@
 // src/components/visualization/TimelineVisualization.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import '../../styles/components/Visualization/TimelineVisualization.css';
+import { aiService } from '../../services/aiService';
 
 const TimelineVisualization = ({ annotations, filters, content }) => {
+  const [summaries, setSummaries] = useState({});
+  const [loading, setLoading] = useState(false);
+  
+  // 解析时间字符串，用于排序
+  const parseTime = (timeStr) => {
+    // 简单的时间解析，根据实际数据格式可能需要更复杂的逻辑
+    const numMatch = timeStr.match(/\d+/);
+    return numMatch ? parseInt(numMatch[0]) : 0;
+  };
+
+  // 生成时间事件
   const timelineEvents = useMemo(() => {
     const timeAnnotations = annotations.filter(ann => 
       ann.label === '时间' && filters.times
@@ -10,8 +22,8 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
     
     return timeAnnotations.map(annotation => {
       // 提取时间相关的上下文
-      const contextStart = Math.max(0, annotation.start - 50);
-      const contextEnd = Math.min(content.length, annotation.end + 50);
+      const contextStart = Math.max(0, annotation.start - 100);
+      const contextEnd = Math.min(content.length, annotation.end + 100);
       const context = content.substring(contextStart, contextEnd);
       
       // 高亮显示时间实体
@@ -21,9 +33,13 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
       );
       
       return {
-        id: annotation.start,
+        id: annotation.id || annotation.start,
+        original: annotation,
         time: annotation.text,
+        context: context,
         description: highlightedContext,
+        startTime: annotation.start,
+        numericTime: parseTime(annotation.text),
         type: 'event',
         entities: annotations.filter(ann => 
           ann.start >= contextStart && 
@@ -32,12 +48,59 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
           filters[ann.label.toLowerCase()]
         )
       };
+    }).sort((a, b) => {
+      // 按时间数值和出现顺序排序
+      if (a.numericTime !== b.numericTime) {
+        return a.numericTime - b.numericTime;
+      }
+      return a.startTime - b.startTime;
     });
   }, [annotations, filters, content]);
+
+  // 为每个时间事件生成AI概括
+  useEffect(() => {
+    const generateSummaries = async () => {
+      if (timelineEvents.length === 0) return;
+      
+      setLoading(true);
+      const newSummaries = { ...summaries };
+      
+      for (const event of timelineEvents) {
+        if (!newSummaries[event.id]) {
+          try {
+            // 使用AI服务生成概括
+            const prompt = `请用简洁的语言概括以下文本中与时间"${event.time}"相关的事件，重点描述发生了什么事情，涉及哪些人物和地点：
+${event.context}`;
+            
+            // 使用aiService的askQuestion方法生成概括
+            const summary = await aiService.askQuestion(event.context, prompt);
+            newSummaries[event.id] = summary;
+          } catch (error) {
+            console.error(`生成时间${event.time}的概括失败:`, error);
+            newSummaries[event.id] = '无法生成概括';
+          }
+          
+          // 避免请求过于频繁
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      setSummaries(newSummaries);
+      setLoading(false);
+    };
+    
+    generateSummaries();
+  }, [timelineEvents, summaries]);
 
   return (
     <div className="timeline-visualization">
       <h3>时间事件轴</h3>
+      {loading && timelineEvents.length > 0 && (
+        <div className="loading-summaries">
+          <i data-feather="refresh-cw" className="spinning"></i>
+          <span>正在生成事件概括...</span>
+        </div>
+      )}
       <div className="timeline-container">
         {timelineEvents.length === 0 ? (
           <div className="empty-timeline">
@@ -72,6 +135,17 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
                             {entity.text}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {summaries[event.id] && (
+                      <div className="timeline-summary">
+                        <div className="summary-header">
+                          <i data-feather="book-open"></i>
+                          <span>AI概括</span>
+                        </div>
+                        <div className="summary-content">
+                          {summaries[event.id]}
+                        </div>
                       </div>
                     )}
                   </div>

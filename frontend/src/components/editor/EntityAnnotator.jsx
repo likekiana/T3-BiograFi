@@ -52,10 +52,93 @@ const EntityAnnotator = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState(null);
   const [entityLabels, setEntityLabels] = useState(loadCustomLabels());
+  const [selectedModel, setSelectedModel] = useState('deepseek-chat'); // 默认使用DeepSeek模型
+  const [availableModels, setAvailableModels] = useState([]);
+  
+  // 加载可用模型列表
+  useEffect(() => {
+    setAvailableModels(aiService.getAvailableModels());
+  }, []);
   
   const annotatedTextRef = useRef(null);
   const quickActionsRef = useRef(null);
   const selectionCheckInterval = useRef(null);
+
+  // 应用格式化（粗体、斜体、下划线、清除格式）
+  const applyFormat = (formatType) => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
+      alert('请先选择要格式化的文本');
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    
+    let wrapper;
+    switch (formatType) {
+      case 'bold':
+        wrapper = document.createElement('b');
+        break;
+      case 'italic':
+        wrapper = document.createElement('i');
+        break;
+      case 'underline':
+        wrapper = document.createElement('u');
+        break;
+      default:
+        return;
+    }
+
+    try {
+      range.surroundContents(wrapper);
+      selection.removeAllRanges();
+      
+      // 触发内容更新
+      if (textareaRef.current) {
+        const newText = textareaRef.current.innerHTML;
+        // 调用父组件的更新函数（通过TextEditor传递）
+        const textEditorComponent = textareaRef.current.closest('.text-editor');
+        if (textEditorComponent) {
+          // 模拟input事件以触发更新
+          const inputEvent = new Event('input', { bubbles: true });
+          textareaRef.current.dispatchEvent(inputEvent);
+        }
+      }
+    } catch (error) {
+      // 如果选择跨越了多个节点，使用替代方法
+      const fragment = range.extractContents();
+      wrapper.appendChild(fragment);
+      range.insertNode(wrapper);
+      
+      if (textareaRef.current) {
+        // 模拟input事件以触发更新
+        const inputEvent = new Event('input', { bubbles: true });
+        textareaRef.current.dispatchEvent(inputEvent);
+      }
+    }
+  };
+
+  // 清除格式
+  const clearFormat = () => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) {
+      alert('请先选择要清除格式的文本');
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const fragment = range.extractContents();
+    const textContent = fragment.textContent;
+    const textNode = document.createTextNode(textContent);
+    range.insertNode(textNode);
+    
+    if (textareaRef.current) {
+      // 模拟input事件以触发更新
+      const inputEvent = new Event('input', { bubbles: true });
+      textareaRef.current.dispatchEvent(inputEvent);
+    }
+  };
 
   // 获取文本内容（去除HTML标签但保留格式）
   const getPlainText = useCallback((html) => {
@@ -191,22 +274,21 @@ const EntityAnnotator = ({
     setEditingAnnotation(null);
     setShowQuickActions(false);
     
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    
     if (textareaRef?.current && !readOnly) {
       textareaRef.current.focus();
-      const selection = window.getSelection();
-      selection.removeAllRanges();
     }
   }, [textareaRef, readOnly]);
 
   // 监听文本选择的变化
   const checkSelection = useCallback(() => {
-    if (!textareaRef?.current || readOnly) return;
+    if (readOnly) return;
     
-    const editor = textareaRef.current;
     const selection = window.getSelection();
     
-    if (!selection.rangeCount || selection.isCollapsed || 
-        !editor.contains(selection.anchorNode)) {
+    if (!selection.rangeCount || selection.isCollapsed) {
       if (isSelecting) {
         setIsSelecting(false);
         setSelectedText('');
@@ -233,23 +315,48 @@ const EntityAnnotator = ({
       return;
     }
     
-    const plainText = getPlainText(editor.innerHTML);
+    // 检查选择是否在文本编辑器中
+    const isInEditor = textareaRef?.current && textareaRef.current.contains(selection.anchorNode);
+    // 检查选择是否在文本预览中
+    const isInPreview = document.querySelector('.annotated-text')?.contains(selection.anchorNode);
+    
+    if (!isInEditor && !isInPreview) {
+      if (isSelecting) {
+        setIsSelecting(false);
+        setSelectedText('');
+        setSelectionStart(-1);
+        setSelectionEnd(-1);
+        setShowQuickActions(false);
+        setEditingAnnotation(null);
+      }
+      return;
+    }
+    
+    const plainText = getPlainText(content);
     const selectedText = selectedPlainText;
     
     let start = -1;
     let end = -1;
     
-    const tempRange = document.createRange();
-    tempRange.selectNodeContents(editor);
-    tempRange.setEnd(range.startContainer, range.startOffset);
+    // 计算在原始文本中的位置
+    // 简单实现：查找选中的文本在原始文本中的位置
+    // 注意：这是一个简化的实现，可能在文本有重复内容时不准确
+    start = plainText.indexOf(selectedText);
+    if (start !== -1) {
+      end = start + selectedText.length;
+    } else {
+      // 如果找不到，使用基于选区范围的估算
+      // 这是一个简化的处理方式，实际应用中可能需要更精确的实现
+      const textBeforeSelection = plainText.slice(0, Math.min(1000, plainText.length));
+      start = textBeforeSelection.length;
+      end = start + selectedText.length;
+    }
     
-    const beforeRange = tempRange.cloneContents();
-    const beforeDiv = document.createElement('div');
-    beforeDiv.appendChild(beforeRange);
-    const beforeText = beforeDiv.textContent || beforeDiv.innerText || '';
-    
-    start = beforeText.length;
-    end = start + selectedText.length;
+    // 确保位置有效
+    if (start < 0 || end <= start) {
+      start = 0;
+      end = Math.min(selectedText.length, plainText.length);
+    }
     
     // 检查是否与现有标注重叠
     const overlappingAnnotation = annotations.find(ann => 
@@ -300,6 +407,17 @@ const EntityAnnotator = ({
   }, [textareaRef, content, annotations, readOnly, isSelecting, getPlainText]);
 
   // 设置定时检查选择状态
+  // 渲染feather图标
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.feather) {
+      // 延迟执行，确保DOM已经渲染完成
+      const timer = setTimeout(() => {
+        window.feather.replace();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [entityLabels, annotations]);
+
   useEffect(() => {
     if (readOnly) return;
     
@@ -310,13 +428,26 @@ const EntityAnnotator = ({
     };
     
     const handleMouseUp = (e) => {
-      if (textareaRef?.current && textareaRef.current.contains(e.target)) {
+      // 检查点击是否在文本编辑器或文本预览中
+      const isInEditor = textareaRef?.current && textareaRef.current.contains(e.target);
+      const isInPreview = document.querySelector('.annotated-text')?.contains(e.target);
+      
+      if (isInEditor || isInPreview) {
         setTimeout(() => {
           checkSelection();
         }, 50);
       }
     };
     
+    const handleClick = (e) => {
+      // 检查点击是否在文本预览中
+      const isInPreview = document.querySelector('.annotated-text')?.contains(e.target);
+      if (isInPreview) {
+        handleSelectionChange();
+      }
+    };
+    
+    // 为文本编辑器添加事件监听
     if (textareaRef?.current) {
       const editor = textareaRef.current;
       editor.addEventListener('mouseup', handleMouseUp);
@@ -324,12 +455,19 @@ const EntityAnnotator = ({
       editor.addEventListener('click', handleSelectionChange);
     }
     
+    // 为文本预览添加事件监听
+    const annotatedTextElement = document.querySelector('.annotated-text');
+    if (annotatedTextElement) {
+      annotatedTextElement.addEventListener('mouseup', handleMouseUp);
+      annotatedTextElement.addEventListener('click', handleClick);
+    }
+    
+    // 全局选择变化监听
     document.addEventListener('selectionchange', handleSelectionChange);
     
+    // 定期检查选择状态
     selectionCheckInterval.current = setInterval(() => {
-      if (textareaRef?.current && document.activeElement === textareaRef.current) {
-        checkSelection();
-      }
+      checkSelection();
     }, 300);
     
     return () => {
@@ -342,6 +480,12 @@ const EntityAnnotator = ({
         editor.removeEventListener('mouseup', handleMouseUp);
         editor.removeEventListener('keyup', handleSelectionChange);
         editor.removeEventListener('click', handleSelectionChange);
+      }
+      
+      const annotatedTextElement = document.querySelector('.annotated-text');
+      if (annotatedTextElement) {
+        annotatedTextElement.removeEventListener('mouseup', handleMouseUp);
+        annotatedTextElement.removeEventListener('click', handleClick);
       }
       
       document.removeEventListener('selectionchange', handleSelectionChange);
@@ -531,7 +675,7 @@ const EntityAnnotator = ({
       console.log('原始文本长度:', plainText.length);
       console.log('前100字符:', plainText.substring(0, 100));
       
-      const aiAnnotations = await aiService.autoAnnotateEntities(plainText);
+      const aiAnnotations = await aiService.autoAnnotateEntities(plainText, selectedModel);
       console.log('AI 返回的标注:', aiAnnotations);
       
       // 验证每个标注的文本是否正确
@@ -781,7 +925,33 @@ const EntityAnnotator = ({
     );
   };
 
-  // 渲染标注文本 - 保持原始格式
+  // 预览框输入事件处理
+  const handlePreviewInput = (e) => {
+    if (readOnly) return;
+    
+    const newContent = e.target.innerHTML;
+    // 调用父组件的更新函数（通过TextEditor传递）
+    if (textareaRef.current) {
+      // 同步更新编辑器内容
+      textareaRef.current.innerHTML = newContent;
+      // 触发input事件以更新状态
+      const inputEvent = new Event('input', { bubbles: true });
+      textareaRef.current.dispatchEvent(inputEvent);
+    }
+  };
+
+  // 预览框按键事件处理
+  const handlePreviewKeyDown = (e) => {
+    if (readOnly) return;
+    
+    // 支持快捷键
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      // 保存功能由父组件处理
+    }
+  };
+
+  // 渲染标注文本 - 可编辑版本
   const renderAnnotatedText = () => {
     const plainText = getPlainText(content);
     if (!plainText) return null;
@@ -837,7 +1007,9 @@ const EntityAnnotator = ({
               key={`annotation-${annotation.id || index}-${lineIndex}`}
               className={`entity-annotation ${
                 currentHoverAnnotation?.id === annotation.id ? 'annotation-highlight' : ''
-              } ${editingAnnotation?.id === annotation.id ? 'annotation-editing' : ''}`}
+              } ${
+                editingAnnotation?.id === annotation.id ? 'annotation-editing' : ''
+              }`}
               style={{
                 backgroundColor: `${color}20`,
                 borderColor: color,
@@ -1002,6 +1174,25 @@ const EntityAnnotator = ({
               >
                 <i data-feather="tag"></i> 对选中文本打标
               </button>
+              
+              {/* 模型选择器 */}
+              <div className="model-selector">
+                <label htmlFor="ai-model-select" className="model-select-label">模型选择:</label>
+                <select
+                  id="ai-model-select"
+                  className="model-select"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={autoAnnotating}
+                >
+                  {availableModels.map(model => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} {model.recommended && '(推荐)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               <button
                 className="action-btn"
                 onClick={handleAutoAnnotate}
@@ -1026,7 +1217,7 @@ const EntityAnnotator = ({
 
         {renderQuickActions()}
 
-        <div className="annotation-preview">
+        <div className="annotation-preview merged-preview">
           <div className="preview-header">
             <h4>{t('annotation_list')} ({annotations.length})</h4>
             {renderStats()}
@@ -1034,10 +1225,8 @@ const EntityAnnotator = ({
           <div className="annotation-list" ref={annotatedTextRef}>
             {renderAnnotationList()}
           </div>
-        </div>
-
-        <div className="text-preview">
-          <div className="preview-header">
+          
+          <div className="preview-header text-preview-header">
             <h4>文本预览（带标注）</h4>
             <div className="legend">
               {entityLabels.map(label => (
@@ -1052,7 +1241,30 @@ const EntityAnnotator = ({
               ))}
             </div>
           </div>
-          <div className="annotated-text">
+          
+          {/* 文本预览格式化工具栏 */}
+          <div className="editor-toolbar">
+            <button className="toolbar-btn" title="粗体" onClick={() => applyFormat('bold')}>
+              <i data-feather="bold"></i>
+            </button>
+            <button className="toolbar-btn" title="斜体" onClick={() => applyFormat('italic')}>
+              <i data-feather="italic"></i>
+            </button>
+            <button className="toolbar-btn" title="下划线" onClick={() => applyFormat('underline')}>
+              <i data-feather="underline"></i>
+            </button>
+            <button className="toolbar-btn" title="清除格式" onClick={clearFormat}>
+              <i data-feather="type"></i>
+            </button>
+          </div>
+          
+          <div 
+            className="annotated-text contenteditable"
+            contentEditable={!readOnly}
+            onInput={handlePreviewInput}
+            onKeyDown={handlePreviewKeyDown}
+            suppressContentEditableWarning={true}
+          >
             {renderAnnotatedText()}
           </div>
         </div>

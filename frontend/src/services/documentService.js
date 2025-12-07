@@ -265,28 +265,68 @@ export const documentService = {
     return result.annotation;
   },
 
-  async deleteEntityAnnotation(documentId, index) {
+  async deleteEntityAnnotation(documentId, indexOrAnnotation) {
     const doc = await this.getDocumentById(documentId);
     if (!doc || !Array.isArray(doc.entityAnnotations)) {
       throw new Error('文档或标注未找到');
     }
 
-    if (index < 0 || index >= doc.entityAnnotations.length) {
-      throw new Error('标注索引无效');
+    let annotationToDelete;
+    let indexToDelete;
+
+    // 处理索引或标注对象两种情况
+    if (typeof indexOrAnnotation === 'number') {
+      // 通过索引删除
+      if (indexOrAnnotation < 0 || indexOrAnnotation >= doc.entityAnnotations.length) {
+        // 索引无效时，尝试通过其他方式查找
+        throw new Error('标注索引无效');
+      }
+      annotationToDelete = doc.entityAnnotations[indexOrAnnotation];
+      indexToDelete = indexOrAnnotation;
+    } else {
+      // 通过标注对象删除
+      const annotation = indexOrAnnotation;
+      if (!annotation) {
+        throw new Error('标注对象不能为空');
+      }
+      
+      // 优先通过ID查找
+      if (annotation.id) {
+        indexToDelete = doc.entityAnnotations.findIndex(ann => ann.id === annotation.id);
+      }
+      
+      // 如果没有ID或者通过ID没找到，尝试通过其他属性匹配
+      if (indexToDelete === -1) {
+        indexToDelete = doc.entityAnnotations.findIndex(ann => 
+          ann.start === annotation.start && 
+          ann.end === annotation.end && 
+          ann.label === annotation.label &&
+          ann.text === annotation.text
+        );
+      }
+      
+      if (indexToDelete === -1) {
+        throw new Error('未找到要删除的标注');
+      }
+      
+      annotationToDelete = doc.entityAnnotations[indexToDelete];
     }
-    const ann = doc.entityAnnotations[index];
-    if (!ann || ann.id == null) {
+
+    if (!annotationToDelete || annotationToDelete.id == null) {
       throw new Error('标注缺少ID，无法删除');
     }
-    await api.annotations.remove(documentId, ann.id);
-    // 同步本地
+
+    await api.annotations.remove(documentId, annotationToDelete.id);
+    
+    // 同步本地存储
     const documents = await this.getDocumentsFromLocal(doc.projectId);
     const idx = documents.findIndex(d => d.id === documentId);
     if (idx !== -1) {
       const list = Array.isArray(documents[idx].entityAnnotations) ? documents[idx].entityAnnotations : [];
-      documents[idx].entityAnnotations = list.filter((_, i) => i !== index);
+      documents[idx].entityAnnotations = list.filter((_, i) => i !== indexToDelete);
       localStorage.setItem('appdata_documents_v1', JSON.stringify(documents));
     }
+    
     return true;
   },
 

@@ -19,7 +19,7 @@
     "build": "vite build",
     "test": "vitest",
     "preview": "vite preview",
-    "start:services": "concurrently -n user,ai,seg -c green,blue,magenta \"node ..\\backend\\server\\user\\user-server.js\" \"python ..\\backend\\server\\AI\\ai.py\" \"python ..\\backend\\server\\seg\\seg_server.py\""
+    "start:services": "concurrently -n user,ai,seg -c green,blue,magenta \"node ..\\backend\\server\\user\\user-server.js\" \"set API_KEY=bce-v3/ALTAK-GlzTH3GEwkwIGzCsLtoeG/692dd1e4a3efc131b1b06ef241e668306e6782c9 && python ..\\backend\\server\\AI\\ai.py\" \"python ..\\backend\\server\\seg\\seg_server.py\""
   },
   "eslintConfig": {
     "extends": [

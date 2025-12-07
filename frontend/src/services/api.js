@@ -2,8 +2,8 @@
 // API 基础服务
 
 const USER_API_BASE = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
-const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || `${USER_API_BASE}/ai`;
-const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || `${USER_API_BASE}/seg`;
+const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || 'http://localhost:5004';
+const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || 'http://localhost:5001';
 
 /**
  * 通用 API 请求函数
@@ -26,10 +26,36 @@ const request = async (url, options = {}) => {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    
+    console.log('API 响应状态:', response.status);
+    
+    // 先读取响应文本，避免body stream被多次读取
+    const text = await response.text();
+    console.log('API 响应文本:', text.substring(0, 200) + '...');
+    
+    // 尝试解析JSON
+    let data;
+    let jsonParseError = null;
+    try {
+      data = JSON.parse(text);
+    } catch (jsonError) {
+      jsonParseError = jsonError;
+      console.error('API 响应不是有效的JSON:', text);
+    }
     
     if (!response.ok) {
-      throw new Error(data.error || data.message || `HTTP ${response.status}`);
+      // 如果响应不成功，使用适当的错误信息
+      if (data && (data.error || data.message)) {
+        throw new Error(data.error || data.message);
+      } else if (jsonParseError) {
+        throw new Error(`HTTP ${response.status}: ${jsonParseError.message}`);
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    }
+    
+    if (jsonParseError) {
+      throw new Error(`API 返回无效JSON: ${jsonParseError.message}，响应内容: ${text.substring(0, 200)}...`);
     }
     
     return data;
@@ -125,10 +151,6 @@ export const userAPI = {
       body: updates,
     });
   },
-
-  async getProfile() {
-    return authenticatedRequest(`${USER_API_BASE}/api/profile`);
-  },
 };
 
 // 项目服务 API
@@ -200,24 +222,24 @@ export const documentAPI = {
 
 // AI 服务 API
 export const aiAPI = {
-  async analyzeText(text, model = 'am-hrzab73jvugw') {
+  async analyzeText(text, model = 'deepseek-chat', apiType = 'deepseek') {
     return request(`${AI_API_BASE}/api/analyze`, {
       method: 'POST',
-      body: { text, model },
+      body: { text, model, apiType },
     });
   },
 
-  async askQuestion(text, question, model = 'am-hrzab73jvugw') {
+  async askQuestion(text, question, model = 'deepseek-chat', apiType = 'deepseek') {
     return request(`${AI_API_BASE}/api/qa`, {
       method: 'POST',
-      body: { text, question, model },
+      body: { text, question, model, apiType },
     });
   },
 
-  async autoAnnotate(text) {
+  async autoAnnotate(text, apiType = 'deepseek') {
     return request(`${AI_API_BASE}/api/auto-annotate`, {
       method: 'POST',
-      body: { text },
+      body: { text, apiType },
     });
   },
 };
@@ -245,13 +267,13 @@ export default {
       });
     },
     async add(documentId, body) {
-      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations`, {
+      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations/entity`, {
         method: 'POST',
         body
       });
     },
     async remove(documentId, annotationId) {
-      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations/${annotationId}`, {
+      return authenticatedRequest(`${USER_API_BASE}/api/documents/${documentId}/annotations/entity/${annotationId}`, {
         method: 'DELETE'
       });
     }

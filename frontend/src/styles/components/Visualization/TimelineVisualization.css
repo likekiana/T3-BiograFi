@@ -234,6 +234,62 @@
   background: #a8a8a8;
 }
 
+/* 加载状态样式 */
+.loading-summaries {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #666;
+  font-size: 0.95em;
+  padding: 15px;
+  background: #f0f8ff;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #cce7ff;
+}
+
+/* 旋转动画 */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* AI概括样式 */
+.timeline-summary {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  border-left: 4px solid #007bff;
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #007bff;
+  font-size: 0.9em;
+}
+
+.summary-header i {
+  width: 16px;
+  height: 16px;
+}
+
+.summary-content {
+  color: #495057;
+  line-height: 1.6;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .timeline {
@@ -256,5 +312,13 @@
   .entity-tag {
     padding: 4px 8px;
     font-size: 0.75em;
+  }
+  
+  .timeline-summary {
+    padding: 12px;
+  }
+  
+  .summary-content {
+    font-size: 0.85em;
   }
 }

@@ -1,5 +1,5 @@
 // src/pages/Editor.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import TextEditor from '../components/editor/TextEditor';
 import EntityAnnotator from '../components/editor/EntityAnnotator';
 import RelationAnnotator from '../components/editor/RelationAnnotator';
@@ -52,6 +52,51 @@ const Editor = ({ document, project, onBack, onSave }) => {
   const hintTimerRef = useRef(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
+  
+  // 撤销功能相关状态
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const maxHistoryLength = 50; // 最大历史记录数量
+
+  // 添加当前状态到历史记录
+  const addToHistory = useCallback(() => {
+    // 只在内容或标注变化时添加历史记录
+    const currentState = {
+      content,
+      annotations: [...annotations],
+      relationAnnotations: [...relationAnnotations]
+    };
+
+    // 如果当前已经撤销了一些操作，清除后续历史
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    // 添加新状态
+    newHistory.push(currentState);
+    
+    // 限制历史记录数量
+    if (newHistory.length > maxHistoryLength) {
+      newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [content, annotations, relationAnnotations, history, historyIndex]);
+
+  // 撤销操作
+  const handleUndo = useCallback(() => {
+    if (historyIndex <= 0) return; // 已经是最早状态
+    
+    const newIndex = historyIndex - 1;
+    const prevState = history[newIndex];
+    
+    if (prevState) {
+      setContent(prevState.content);
+      setAnnotations([...prevState.annotations]);
+      setRelationAnnotations([...prevState.relationAnnotations]);
+      setHistoryIndex(newIndex);
+      setTemporaryHint('已撤销操作');
+    }
+  }, [history, historyIndex]);
 
   const navigate = useNavigate();
   const featherRendered = useRef(false);
@@ -111,6 +156,10 @@ const Editor = ({ document, project, onBack, onSave }) => {
 
   // 内容变化处理
   const handleContentChange = (newContent) => {
+    // 如果内容没有变化，不添加历史记录
+    if (newContent !== content) {
+      addToHistory();
+    }
     setContent(newContent);
     setSaveStatus('saving');
     debouncedSave(newContent, documentName, author);
@@ -342,7 +391,6 @@ const Editor = ({ document, project, onBack, onSave }) => {
       '（': '）',
       '[': ']',
       '【': '】',
-      '"': '"',
       '"': '"',
       "'": "'",
       '\u2018': '\u2019'
@@ -686,64 +734,50 @@ const Editor = ({ document, project, onBack, onSave }) => {
       await addEntityAnnotation(document.id, annotation);
       await loadEntityAnnotations(); // 重新加载标注
       await loadRelationAnnotations(); // 实体变化后刷新关系
+      // 添加到历史记录（在数据加载完成后）
+      addToHistory();
     } catch (error) {
       console.error('添加实体标注失败:', error);
     }
   };
 
-  // 删除实体标注 - 修改为根据标注对象查找索引
+  // 删除实体标注 - 直接传递标注对象，让documentService处理查找和删除逻辑
   const handleDeleteAnnotation = async (annotation) => {
-    if (!document) return;
+    if (!document || !annotation) return;
 
     try {
-      // 查找标注的索引
-      const currentAnnotations = annotations || [];
-      const annotationIndex = currentAnnotations.findIndex(ann =>
-        ann.id === annotation.id ||
-        (ann.start === annotation.start &&
-          ann.end === annotation.end &&
-          ann.label === annotation.label &&
-          ann.text === annotation.text)
-      );
-
-      if (annotationIndex === -1) {
-        console.warn('未找到要删除的标注:', annotation);
-        return;
-      }
-
-      await deleteEntityAnnotation(document.id, annotationIndex);
+      // 直接传递标注对象，让documentService处理查找和删除
+      await deleteEntityAnnotation(document.id, annotation);
+      // 重新加载标注数据，确保状态同步
       await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      // 添加到历史记录（在数据加载完成后）
+      addToHistory();
     } catch (error) {
       console.error('删除实体标注失败:', error);
+      // 提供更友好的错误提示
+      alert(`删除标注失败: ${error.message || '未知错误'}`);
     }
   };
 
   // 更新实体标注
   const handleUpdateAnnotation = async (oldAnnotation, newAnnotation) => {
-    if (!document) return;
+    if (!document || !oldAnnotation || !newAnnotation) return;
 
     try {
-      // 先删除旧的
-      const currentAnnotations = annotations || [];
-      const annotationIndex = currentAnnotations.findIndex(ann =>
-        ann.id === oldAnnotation.id ||
-        (ann.start === oldAnnotation.start &&
-          ann.end === oldAnnotation.end &&
-          ann.label === oldAnnotation.label &&
-          ann.text === oldAnnotation.text)
-      );
-
-      if (annotationIndex !== -1) {
-        await deleteEntityAnnotation(document.id, annotationIndex);
-      }
+      // 直接传递旧标注对象进行删除，让documentService处理查找
+      await deleteEntityAnnotation(document.id, oldAnnotation);
 
       // 再添加新的
       await addEntityAnnotation(document.id, newAnnotation);
 
-      // 重新加载标注
+      // 重新加载标注，确保状态同步
       await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      // 添加到历史记录（在数据加载完成后）
+      addToHistory();
     } catch (error) {
       console.error('更新实体标注失败:', error);
+      // 提供更友好的错误提示
+      alert(`更新标注失败: ${error.message || '未知错误'}`);
     }
   };
 
@@ -754,6 +788,8 @@ const Editor = ({ document, project, onBack, onSave }) => {
     try {
       await addRelationAnnotation(document.id, relation);
       await loadRelationAnnotations();
+      // 添加到历史记录（在数据加载完成后）
+      addToHistory();
     } catch (error) {
       console.error('添加关系标注失败:', error);
       alert(error.message || t('add_relation_failed'));
@@ -767,6 +803,8 @@ const Editor = ({ document, project, onBack, onSave }) => {
     try {
       await deleteRelationAnnotation(document.id, relationId);
       await loadRelationAnnotations();
+      // 添加到历史记录（在数据加载完成后）
+      addToHistory();
     } catch (error) {
       console.error('删除关系标注失败:', error);
       alert(error.message || t('delete_relation_failed'));
@@ -787,6 +825,11 @@ const Editor = ({ document, project, onBack, onSave }) => {
         e.preventDefault();
         handleManualSave();
       }
+      // Ctrl+Z 撤销操作
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
     };
 
     if (typeof window !== 'undefined' && window.document) {
@@ -796,7 +839,7 @@ const Editor = ({ document, project, onBack, onSave }) => {
         window.document.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [content, author, handleManualSave]);
+  }, [content, author, handleManualSave, handleUndo]);
 
   // 统一管理feather图标渲染 - 只在客户端渲染
   useEffect(() => {

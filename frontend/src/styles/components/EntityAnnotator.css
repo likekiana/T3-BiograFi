@@ -59,6 +59,45 @@
   align-items: center;
 }
 
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.model-select-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.model-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 40px;
+  min-width: 150px;
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.model-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
 .control-buttons .action-btn {
   display: inline-flex;
   align-items: center;
@@ -323,16 +362,139 @@
 
 .annotated-text {
   padding: 16px;
-  background-color: #f9fafb;
+  background-color: #ffffff;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
   line-height: 1.6;
   font-size: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Helvetica Neue', monospace;
   white-space: pre-wrap;
-  min-height: 100px;
-  max-height: 300px;
+  min-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
+  color: #000000;
+  transition: all 0.2s ease;
+}
+
+.annotated-text.contenteditable {
+  cursor: text;
+  outline: none;
+}
+
+.annotated-text.contenteditable:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.annotated-text.contenteditable[contenteditable="true"]::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.annotated-text.contenteditable[contenteditable="true"]::-moz-selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* 确保编辑模式下的样式一致 */
+.annotated-text.contenteditable .entity-annotation {
+  cursor: pointer;
+  user-select: none;
+}
+
+.annotated-text.contenteditable .entity-annotation:hover {
+  transform: translateY(-1px);
+}
+
+/* 合并预览区域样式 */
+.merged-preview {
+  background-color: #ffffff;
+}
+
+/* 文本预览标题样式 */
+.text-preview-header {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* 确保所有文本为黑色 */
+.merged-preview * {
+  color: #000000;
+}
+
+/* 文本预览格式化工具栏样式 */
+.editor-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: flex-start;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.editor-toolbar:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  background-color: #e0f2fe;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #0369a1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-btn:hover {
+  background-color: #3b82f6;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(59, 130, 246, 0.3);
+}
+
+.toolbar-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+}
+
+/* 确保图标正确显示 */
+.toolbar-btn i {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.5;
+}
+
+/* 调整标注列表的背景色 */
+.annotation-list {
+  background-color: #ffffff;
+}
+
+/* 调整标注项的背景色 */
+.annotation-item {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.annotation-item:hover {
+  background-color: #eff6ff !important;
+  border-color: #3b82f6 !important;
+}
+
+.item-highlight {
+  background-color: #eff6ff !important;
+  border-color: #3b82f6 !important;
 }
 
 .entity-annotation {
