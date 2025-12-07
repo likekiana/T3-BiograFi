@@ -15,7 +15,9 @@ import {
   Compass,
   Navigation,
   Globe,
-  Map
+  Map,
+  Thermometer, // 新增：热力图图标
+  Activity // 新增：活动图标
 } from 'react-feather';
 
 // 高德地图API配置
@@ -220,7 +222,7 @@ class LocationMatcher {
   }
 }
 
-const LocationMap = ({ annotations, filters }) => {
+const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = true }) => {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -232,7 +234,12 @@ const LocationMap = ({ annotations, filters }) => {
   const [locationsWithCoords, setLocationsWithCoords] = useState([]);
   const [matchResults, setMatchResults] = useState({});
 
-  //当前地图样式状态
+  // 热力图相关状态
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapData, setHeatmapData] = useState([]);
+  const [isGeneratingHeatmap, setIsGeneratingHeatmap] = useState(false);
+
+  // 当前地图样式状态
   const [currentMapStyle, setCurrentMapStyle] = useState('grey');
 
   const isMountedRef = useRef(true);
@@ -534,9 +541,175 @@ const LocationMap = ({ annotations, filters }) => {
     fetchCoordinates();
   }, [locations, smartGeocodeLocations]);
 
+  // 生成热力图数据
+  const generateHeatmapData = useCallback(() => {
+    if (locationsWithCoords.length === 0) return [];
+
+    // 过滤并转换数据
+    const validData = locationsWithCoords
+      .filter(location =>
+        location.coordinates &&
+        Array.isArray(location.coordinates) &&
+        location.coordinates.length === 2 &&
+        Number.isFinite(location.coordinates[0]) &&
+        Number.isFinite(location.coordinates[1])
+      )
+      .map(location => ({
+        lng: location.coordinates[0],
+        lat: location.coordinates[1],
+        value: location.count, // 使用出现次数作为热力值
+        name: location.name,
+        count: location.count,
+        confidence: location.matchInfo?.confidence || 'low'
+      }));
+
+    return validData;
+  }, [locationsWithCoords]);
+
+  //热力图切换
+  const toggleHeatmap = useCallback(() => {
+    if (showHeatmap) {
+      // 关闭热力图，显示标记
+      setShowHeatmap(false);
+      if (window.heatmapInstance) {
+        window.heatmapInstance.setMap(null);
+        window.heatmapInstance = null;
+      }
+      // 重新显示标记
+      if (mapInstance && markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => {
+          if (marker && marker.setMap) {
+            marker.setMap(mapInstance);
+          }
+        });
+      }
+    } else {
+      // 打开热力图
+      console.log('Opening heatmap...');
+      const data = generateHeatmapData();
+      if (data.length === 0) {
+        alert('没有足够的地图数据生成热力图');
+        return;
+      }
+
+      console.log('Generated heatmap data:', data);
+      setHeatmapData(data);
+      setShowHeatmap(true);
+      setIsGeneratingHeatmap(true);
+
+      // 如果提供了父组件的回调函数，调用它
+      if (onOpenHeatmap) {
+        onOpenHeatmap(data);
+      }
+    }
+  }, [showHeatmap, generateHeatmapData, onOpenHeatmap, mapInstance]);
+
+  // 创建热力图
+  useEffect(() => {
+    // 只有显示热力图时才执行
+    if (!showHeatmap) return;
+
+    // 检查必要的条件
+    if (!mapInstance || !heatmapData || heatmapData.length === 0) {
+      return;
+    }
+
+    const createHeatmap = async () => {
+      try {
+        // 1. 确保插件已加载 (使用官方推荐的 AMap.plugin 方式)
+        if (!window.AMap.HeatMap) {
+          await new Promise((resolve) => {
+            window.AMap.plugin(['AMap.HeatMap'], () => {
+              resolve();
+            });
+          });
+        }
+
+        // 清除现有的热力图
+        if (window.heatmapInstance) {
+          window.heatmapInstance.setMap(null);
+          window.heatmapInstance = null;
+        }
+
+        // 隐藏标记
+        markersRef.current.forEach(marker => {
+          if (marker && marker.setMap) {
+            marker.setMap(null);
+          }
+        });
+
+        // 创建热力图实例
+        const heatmap = new window.AMap.HeatMap(mapInstance, {
+          radius: 25,
+          opacity: [0, 0.8],
+          gradient: {
+            0.1: 'rgb(0, 255, 0)',
+            0.3: 'rgb(255, 255, 0)',
+            0.5: 'rgb(255, 165, 0)',
+            0.8: 'rgb(255, 69, 0)',
+            1.0: 'rgb(139, 0, 0)'
+          },
+          zIndex: 100,
+          zooms: [3, 18]
+        });
+
+        // 准备数据
+        const points = heatmapData.map(point => ({
+          lng: point.lng,
+          lat: point.lat,
+          count: point.value
+        }));
+
+        const maxValue = Math.max(...heatmapData.map(p => p.value));
+
+        // 设置数据
+        heatmap.setDataSet({
+          data: points,
+          max: maxValue * 1.2
+        });
+
+        // 保存实例
+        window.heatmapInstance = heatmap;
+        setIsGeneratingHeatmap(false);
+
+        // 调整视野 - 修复：增加由 NaN 引起崩溃的防护
+        setTimeout(() => {
+          if (mapInstance && points.length > 0) {
+            const bounds = new window.AMap.Bounds();
+            let validPointsCount = 0;
+
+            points.forEach(point => {
+              // 再次检查，防止 NaN 导致 crash
+              if (Number.isFinite(point.lng) && Number.isFinite(point.lat)) {
+                bounds.extend(new window.AMap.LngLat(point.lng, point.lat));
+                validPointsCount++;
+              }
+            });
+
+            if (validPointsCount > 0) {
+              mapInstance.setBounds(bounds, false, [50, 50, 50, 50]);
+            }
+          }
+        }, 500);
+
+        console.log('Heatmap created successfully');
+
+      } catch (error) {
+        console.error('创建热力图失败:', error);
+        setIsGeneratingHeatmap(false);
+        // ... (保持原本的错误处理逻辑)
+        setShowHeatmap(false);
+      }
+    };
+
+    createHeatmap();
+
+  }, [showHeatmap, mapInstance, heatmapData]);
+
   // 优化：延迟添加标记到地图
   useEffect(() => {
-    if (!mapInstance || locationsWithCoords.length === 0) return;
+    if (showHeatmap) return;
+    if (!mapInstance || locationsWithCoords.length === 0 || showHeatmap) return;
 
     // 延迟添加标记，避免阻塞UI
     const timer = setTimeout(() => {
@@ -620,7 +793,7 @@ const LocationMap = ({ annotations, filters }) => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [mapInstance, locationsWithCoords]);
+  }, [mapInstance, locationsWithCoords, showHeatmap]);
 
   // 创建标记内容（不变）
   const createMarkerContent = useCallback((location) => {
@@ -819,6 +992,24 @@ const LocationMap = ({ annotations, filters }) => {
             <button className="control-btn" onClick={handleResetView} title="重置视图">
               <RefreshCw size={18} />
             </button>
+
+            {/* 热力图切换按钮 */}
+            {showHeatmapButton && locationsWithCoords.length > 0 && (
+              <button
+                className={`control-btn ${showHeatmap ? 'active' : ''}`}
+                onClick={toggleHeatmap}
+                title={showHeatmap ? "关闭热力图" : "打开热力图"}
+                disabled={isGeneratingHeatmap}
+              >
+                {isGeneratingHeatmap ? (
+                  <div className="loading-spinner-small"></div>
+                ) : showHeatmap ? (
+                  <MapPin size={18} /> // 切换到标记视图图标
+                ) : (
+                  <Thermometer size={18} /> // 热力图图标
+                )}
+              </button>
+            )}
           </div>
 
           {/* 气泡式样式选择器 */}
@@ -896,12 +1087,35 @@ const LocationMap = ({ annotations, filters }) => {
                   <Cpu size={14} />
                   AI智能地名匹配
                 </p>
+
+                {/* 热力图状态 */}
+                {showHeatmap && (
+                  <div className="heatmap-status">
+                    <Thermometer size={14} />
+                    <span>热力图模式已启用</span>
+                    <button
+                      onClick={toggleHeatmap}
+                      className="heatmap-toggle-btn"
+                    >
+                      切换回标记视图
+                    </button>
+                  </div>
+                )}
+
                 {/* 新增：当前地图样式信息 */}
                 <div className="map-style-info">
                   <span className="style-label">地图样式:</span>
                   <span className="style-name">{MAP_STYLES[currentMapStyle].name}</span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* 热力图加载指示器 */}
+          {isGeneratingHeatmap && (
+            <div className="heatmap-loading-overlay">
+              <div className="loading-spinner"></div>
+              <p>正在生成热力图...</p>
             </div>
           )}
         </div>
