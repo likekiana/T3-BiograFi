@@ -2,6 +2,7 @@
 // 认证服务
 
 import api from './api';
+import { setStoredTheme } from '../utils/theme';
 
 export const authService = {
   /**
@@ -17,6 +18,12 @@ export const authService = {
       if (result.success) {
         // 保存用户信息和 token
         localStorage.setItem('currentUser', JSON.stringify(result.user));
+        // 如果用户存在主题设置，应用并保存到 localStorage
+        try {
+          if (result.user && result.user.settings && result.user.settings.theme) {
+            setStoredTheme(result.user.settings.theme);
+          }
+        } catch (e) {}
         if (result.token) {
           localStorage.setItem('token', result.token);
         }
@@ -66,6 +73,33 @@ export const authService = {
    */
   async updateUser(userId, updates) {
     try {
+      // 如果包含 settings 字段，优先使用专门的 settings 接口
+      if (updates && updates.settings !== undefined) {
+        // 直接调用 settings 更新接口
+        const base = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
+        const res = await fetch(`${base}/api/users/${userId}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: updates.settings })
+        });
+        const result = await res.json();
+
+        if (result && result.success) {
+          // 更新本地 currentUser（合并返回的 user 或直接合并 updates）
+          const currentUser = this.getCurrentUser();
+          let updatedUser = currentUser || {};
+          if (result.user) {
+            updatedUser = { ...updatedUser, ...result.user };
+          } else {
+            updatedUser = { ...updatedUser, settings: updates.settings };
+          }
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+          return { success: true, user: updatedUser };
+        }
+        return { success: false, error: (result && result.error) || '更新设置失败' };
+      }
+
+      // 常规更新走原有接口（email/password 等）
       const result = await api.user.updateUser(userId, updates);
       
       if (result.success) {
@@ -85,6 +119,28 @@ export const authService = {
         success: false, 
         error: error.message || '无法连接服务器' 
       };
+    }
+  },
+
+  /**
+   * Change password with current password verification
+   * @param {string} userId
+   * @param {string} currentPassword
+   * @param {string} newPassword
+   */
+  async changePassword(userId, currentPassword, newPassword) {
+    try {
+      const base = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
+      const res = await fetch(`${base}/api/users/${userId}/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const result = await res.json();
+      return result;
+    } catch (e) {
+      console.error('changePassword error:', e);
+      return { success: false, error: e.message };
     }
   },
 

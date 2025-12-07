@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import reportWebVitals from './reportWebVitals';
+import { initTheme } from './utils/theme';
+
+// 在应用挂载前初始化主题（根据 localStorage）
+initTheme();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

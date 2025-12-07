@@ -16,7 +16,30 @@ html, body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+/* 主题变量：默认浅色 */
+:root {
+  --bg-color: #f9fafb;
+  --surface: #ffffff;
+  --text-color: #111827;
+  --muted: #6b7280;
+  --primary: #1f8ef1;
+  --primary-contrast: #ffffff;
+  --card-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* 暗色主题覆盖 */
+.theme-dark {
+  --bg-color: #0b1020;
+  --surface: #0f1724;
+  --text-color: #e6eef8;
+  --muted: #9aa6bf;
+  --primary: #3aa0ff;
+  --primary-contrast: #0b1020;
+  --card-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
 
 #root {
@@ -32,12 +55,12 @@ html, body {
 /* 通用样式 */
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary);
   text-decoration: inherit;
 }
 
 a:hover {
-  color: #535bf2;
+  color: var(--primary);
 }
 
 button {
@@ -57,7 +80,7 @@ button:focus-visible {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f9fafb;
+  background-color: var(--bg-color);
 }
 
 .loading-spinner-large {
@@ -76,7 +99,7 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .loading-spinner {

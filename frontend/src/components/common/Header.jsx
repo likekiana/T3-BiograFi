@@ -1,14 +1,13 @@
 // src/components/common/Header.js
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { t, getCurrentLanguage, setCurrentLanguage } from '../../utils/language';
+import { useNavigate } from 'react-router-dom';
+import { t } from '../../utils/language';
 import '../../styles/components/Header.css';
 
 const Header = ({ showEditorButtons = false, onSaveDocument, onBackToProject, onShowUserProfile }) => {
   const { user, logout } = useAuth();
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [currentLanguage, setCurrentLanguageState] = useState(getCurrentLanguage());
-  const dropdownRef = useRef(null);
+  
 
   const handleLogout = () => {
     if (window.confirm(t('confirm_logout'))) {
@@ -16,27 +15,21 @@ const Header = ({ showEditorButtons = false, onSaveDocument, onBackToProject, on
     }
   };
 
-  const handleLanguageSelect = (lang) => {
-    setCurrentLanguage(lang);
-    setCurrentLanguageState(lang);
-    setShowLanguageDropdown(false);
-    // 重新加载页面以应用语言更改
-    window.location.reload();
+  const navigate = useNavigate();
+
+  const goToProfile = () => {
+    // 如果上层传递了 onShowUserProfile，保持向后兼容，仍然触发它
+    if (onShowUserProfile) {
+      onShowUserProfile();
+    }
+    navigate('/profile');
   };
 
-  // 点击外部关闭下拉框
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowLanguageDropdown(false);
-      }
-    };
+  const goToSettings = () => {
+    navigate('/settings');
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  
 
   return (
     <header className="header">
@@ -65,51 +58,30 @@ const Header = ({ showEditorButtons = false, onSaveDocument, onBackToProject, on
           </div>
         )}
         
-        {/* 语言下拉框 */}
-        <div className="lang-wrapper" ref={dropdownRef}>
-          <button 
-            className="header-button" 
-            onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-          >
-            {currentLanguage}
-          </button>
-          {showLanguageDropdown && (
-            <div className="lang-dropdown">
-              <div 
-                className="lang-item" 
-                onClick={() => handleLanguageSelect('简体中文')}
-              >
-                简体中文
-              </div>
-              <div 
-                className="lang-item" 
-                onClick={() => handleLanguageSelect('繁體中文')}
-              >
-                繁體中文
-              </div>
-              <div 
-                className="lang-item" 
-                onClick={() => handleLanguageSelect('English')}
-              >
-                English
-              </div>
-            </div>
-          )}
-        </div>
+        {/* 语言下拉已移入设置中心 */}
         
-        <button 
-          className="header-button" 
-          onClick={onShowUserProfile}
-        >
-          {user?.username || t('user_info')}
-        </button>
-        
-        <button 
-          className="header-button logout-button" 
-          onClick={handleLogout}
-        >
-          {t('logout')}
-        </button>
+        {user ? (
+          <>
+            <button className="header-button" onClick={goToProfile}>
+              {user.username || t('user_info')}
+            </button>
+            <button className="header-button" onClick={goToSettings}>
+              设置
+            </button>
+            <button className="header-button logout-button" onClick={handleLogout}>
+              {t('logout')}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="header-button" onClick={onShowUserProfile}>
+              {t('user_info')}
+            </button>
+            <button className="header-button logout-button" onClick={handleLogout}>
+              {t('logout')}
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
