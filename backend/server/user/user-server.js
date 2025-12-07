@@ -223,66 +223,84 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// 更新用户信息
+// 更新用户信息（支持 username/email/password）
 app.patch('/api/users/:userId', async (req, res) => {
     try {
         const userId = parseInt(req.params.userId);
-        const { username, email } = req.body;
-        
-        if (!username && !email) {
-            return res.status(400).json({ 
-                success: false, 
-                error: '没有需要更新的信息' 
+        const { username, email, password } = req.body;
+
+        console.log(`PATCH /api/users/${userId} body:`, req.body);
+
+        if (!username && !email && !password) {
+            return res.status(400).json({
+                success: false,
+                error: '没有需要更新的信息'
             });
         }
-        
+
         const user = await UserModel.findById(userId);
-        
+
         if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                error: '用户不存在' 
+            return res.status(404).json({
+                success: false,
+                error: '用户不存在'
             });
         }
-        
-        // 检查邮箱是否被其他用户使用
-        if (email) {
-            const emailExists = await UserModel.isEmailExists(email, userId);
-            if (emailExists) {
-                return res.status(409).json({ 
-                    success: false, 
-                    error: '邮箱已被其他用户使用' 
-                });
+
+        // 检查用户名是否被其他用户使用
+        if (username && username !== user.username) {
+            const nameExists = await UserModel.isUsernameExists(username, userId);
+            if (nameExists) {
+                return res.status(409).json({ success: false, error: '用户名已被其他用户使用' });
             }
         }
-        
-        // 更新用户信息
+
+        // 检查邮箱是否被其他用户使用
+        if (email && email !== user.email) {
+            const emailExists = await UserModel.isEmailExists(email, userId);
+            if (emailExists) {
+                return res.status(409).json({ success: false, error: '邮箱已被其他用户使用' });
+            }
+        }
+
+        // 密码长度校验（若提供）
+        if (password && password.length < 6) {
+            return res.status(400).json({ success: false, error: '密码至少需要6个字符' });
+        }
+
         const updates = {};
         if (username) updates.username = username;
         if (email) updates.email = email;
-        
-        const updated = await UserModel.update(userId, updates);
-        
-        if (updated) {
-            // 返回更新后的用户信息
+        if (password) updates.password = password;
+
+        const updateResult = await UserModel.update(userId, updates);
+        console.log(`UserModel.update result for user ${userId}:`, updateResult);
+
+        // updateResult may be the full result object from mysql2
+        const affected = updateResult && (updateResult.affectedRows || updateResult.affectedRows === 0 ? updateResult.affectedRows : null);
+        console.log(`更新影响的行数: ${affected}`);
+
+        if (affected === null) {
+            // unexpected result shape, still try to fetch user and return
             const updatedUser = await UserModel.findById(userId);
-            res.json({ 
-                success: true, 
-                user: updatedUser 
-            });
-        } else {
-            res.status(500).json({ 
-                success: false, 
-                error: '更新用户信息失败' 
-            });
+            console.log('返回给前端的 updatedUser (no affectedRows):', updatedUser);
+            return res.json({ success: true, user: updatedUser });
         }
-        
+
+        if (affected > 0) {
+            const updatedUser = await UserModel.findById(userId);
+            console.log('返回给前端的 updatedUser:', updatedUser);
+            return res.json({ success: true, user: updatedUser });
+        }
+
+        // affected === 0 -> no rows changed (可能因为值无变化)
+        console.warn('更新操作未修改任何行（可能新值与旧值相同）', { userId, updates });
+        const currentUser = await UserModel.findById(userId);
+        return res.json({ success: true, user: currentUser, message: '未检测到变更（可能新值与旧值相同）' });
+
     } catch (error) {
         console.error('更新用户信息错误:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: '服务器错误' 
-        });
+        res.status(500).json({ success: false, error: '服务器错误' });
     }
 });
 
@@ -325,6 +343,51 @@ app.get('/api/users/:userId', async (req, res) => {
     }
 });
 
+// PUT /api/users/:userId/settings
+app.put('/api/users/:userId/settings', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const settings = req.body.settings || {};
+    const ok = await UserModel.updateSettings(userId, settings);
+    if (!ok) {
+      return res.status(404).json({ success: false, error: '用户不存在或未更新' });
+    }
+    const updated = await UserModel.findById(userId);
+    res.json({ success: true, user: updated });
+  } catch (e) {
+    console.error('更新设置错误:', e);
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+// POST /api/users/:userId/change-password
+app.post('/api/users/:userId/change-password', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        // 简单请求者校验：要求请求头中包含发起者的用户ID，且必须与路径参数一致
+        const requesterIdHeader = req.headers['x-user-id'] || req.headers['X-User-Id'];
+        const requesterId = requesterIdHeader ? parseInt(requesterIdHeader) : null;
+        if (!requesterId || requesterId !== userId) {
+            return res.status(403).json({ success: false, error: '无权限修改此用户的密码' });
+        }
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, error: '需要提供当前密码与新密码' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, error: '新密码长度至少6位' });
+        }
+
+        const result = await UserModel.changePassword(userId, currentPassword, newPassword);
+        if (!result.success) {
+            return res.status(400).json({ success: false, error: result.error || '修改失败' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('change-password error:', e);
+        res.status(500).json({ success: false, error: '服务器错误' });
+    }
+});
 // ============ 项目管理 API ============
 
 // 获取用户的所有项目

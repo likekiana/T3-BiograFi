@@ -59,6 +59,18 @@ async function ensureSchema() {
             is_active TINYINT(1) NOT NULL DEFAULT 1
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
 
+        // 确保 users 表包含 settings JSON 列（用于保存用户个性化设置）
+        try {
+            const [cols] = await conn.execute(`SHOW COLUMNS FROM users LIKE 'settings'`);
+            if (!Array.isArray(cols) || cols.length === 0) {
+                await conn.execute(`ALTER TABLE users ADD COLUMN settings JSON NULL`);
+                await conn.execute(`UPDATE users SET settings = '{}' WHERE settings IS NULL`);
+                console.log('✅ 已为 users 表添加 settings 列');
+            }
+        } catch (e) {
+            console.warn('⚠️ 检查/添加 users.settings 列失败:', e.message);
+        }
+
         await conn.execute(`CREATE TABLE IF NOT EXISTS projects (
             id VARCHAR(64) PRIMARY KEY,
             user_id INT NOT NULL,
