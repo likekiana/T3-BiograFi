@@ -43,9 +43,7 @@ const getStyleById = (id) => {
 };
 
 // 全局状态管理 - 优化为立即加载
-// let globalMapInstance = null; // 【删除】不再使用全局实例
-let isAMapLoaded = false; // 【保留】用于预加载状态管理
-// let isMapInitializing = false; // 【删除】不再需要
+let isAMapLoaded = false; 
 let _locationsCache = null; //缓存数据
 
 // 获取缓存的函数
@@ -243,6 +241,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
   const [currentMapStyle, setCurrentMapStyle] = useState('grey');
 
   const isMountedRef = useRef(true);
+  const markerRestoreTimerRef = useRef(null); // <-- 【新增】用于存储 setTimeout ID
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -292,46 +291,33 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     return () => clearInterval(checkInterval);
   }, []);
 
-  // 优化：标准 React 地图初始化
+  // 优化：标准 React 地图初始化（只依赖 isAMapReady，避免因 currentMapStyle 变化而重建地图实例）
   useEffect(() => {
-    // 1. 基础检查
-    if (!isAMapReady || !mapRef.current) {
+    if (!isAMapReady || !mapRef.current || mapInstance) {
       return;
-    }
-
-    // 防止重复初始化
-    if (mapInstance) {
-       return; 
     }
 
     console.log('Initializing map...');
 
     let map = null;
-    // isMapInitializing = true; // 【删除】
 
     try {
-      // 再次检查 AMap 是否存在
       if (!window.AMap || !window.AMap.Map) {
         console.error('AMap not found, retrying...');
         setIsAMapReady(false);
-        // isMapInitializing = false; // 【删除】
-        // 重新触发检查
         const script = document.createElement('script');
         script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}`;
         script.async = true;
         script.defer = true;
         script.crossOrigin = 'anonymous';
-
         script.onload = () => {
           console.log('AMap loaded via retry');
           setIsAMapReady(true);
         };
-
         document.head.appendChild(script);
         return;
       }
 
-      // 使用更简单的配置加快初始化
       const mapOptions = {
         zoom: 5,
         center: [116.397428, 39.90923],
@@ -339,16 +325,14 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
         mapStyle: getStyleById(currentMapStyle),
         resizeEnable: true,
         animateEnable: false,
-        doubleClickZoom: false, // 可以改为 true 以启用双击缩放
+        doubleClickZoom: false,
         keyboardEnable: false,
-        scrollWheel: true,     // 这里改为 true 启用鼠标滚轮缩放
-        touchZoom: false        // 可以改为 true 以启用手势缩放
+        scrollWheel: true,
+        touchZoom: false
       };
 
       console.log('Creating AMap with options:', mapOptions);
-      map = new window.AMap.Map(mapRef.current, mapOptions); // 【修改】将map改为局部变量
-
-      // globalMapInstance = map; // 【核心修复：删除】不再使用全局实例
+      map = new window.AMap.Map(mapRef.current, mapOptions);
 
       if (isMountedRef.current) {
         setMapInstance(map);
@@ -357,9 +341,6 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       console.log('Map initialized successfully');
     } catch (error) {
       console.error('Map initialization failed:', error);
-      // isMapInitializing = false; // 【删除】
-
-      // 显示错误信息
       if (mapRef.current) {
         mapRef.current.innerHTML = `
         <div style="
@@ -390,17 +371,21 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       }
     }
 
-    // 【核心修复：添加 map.destroy()】确保组件卸载时彻底销毁地图
+    // 组件卸载时彻底销毁地图
     return () => {
       console.log('Destroying map instance');
+      if (markerRestoreTimerRef.current) {
+        clearTimeout(markerRestoreTimerRef.current);
+        markerRestoreTimerRef.current = null;
+      }
       if (map) {
-        map.destroy(); // 关键！彻底销毁地图，释放 WebGL 上下文
+        map.destroy();
       }
       if (isMountedRef.current) {
-        setMapInstance(null); // 清除 React State 中的引用
+        setMapInstance(null);
       }
     };
-  }, [isAMapReady, currentMapStyle]);
+  }, [isAMapReady]);
 
   // 优化：快速处理地点数据
   const locations = useMemo(() => {
@@ -513,7 +498,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     }
 
     return results.filter(loc => loc && loc.coordinates);
-  }, []);
+  }, [locations]);
 
   // 优化：立即获取坐标数据
   useEffect(() => {
@@ -538,7 +523,11 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
           matchInfo: cache.get(loc.name).matchInfo
         }));
         if (isMountedRef.current) {
-          setLocationsWithCoords(cachedWithCoords);
+          setLocationsWithCoords(prev => {
+            const existingNames = new Set(prev.map(l => l.name));
+            const newValidResults = cachedWithCoords.filter(r => !existingNames.has(r.name));
+            return [...prev, ...newValidResults];
+          });
         }
       }
 
@@ -919,20 +908,49 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     }
   }, [mapInstance]);
 
-  // 新增：切换地图样式
-  // 新的气泡样式选择器切换函数
+  // 切换地图样式：只切换样式，不再重建地图实例
   const handleChangeMapStyle = useCallback((styleUrl) => {
-    if (mapInstance) {
-      try {
-        mapInstance.setMapStyle(styleUrl);
-        // 找到对应的样式ID
-        const styleEntry = Object.entries(MAP_STYLES).find(([_, value]) => value.style === styleUrl);
-        if (styleEntry) {
-          setCurrentMapStyle(styleEntry[0]);
-        }
-      } catch (error) {
-        console.error('切换地图样式失败:', error);
+    if (!mapInstance) return;
+    try {
+      if (markerRestoreTimerRef.current) {
+        clearTimeout(markerRestoreTimerRef.current);
+        markerRestoreTimerRef.current = null;
       }
+      // 暂时移除标记
+      markersRef.current.forEach(marker => {
+        if (marker) marker.setMap(null);
+      });
+      // 切换样式
+      mapInstance.setMapStyle(styleUrl);
+      // 只更新 currentMapStyle 状态（不再触发地图重建）
+      const styleEntry = Object.entries(MAP_STYLES).find(([_, value]) => value.style === styleUrl);
+      if (styleEntry) setCurrentMapStyle(styleEntry[0]);
+      // 延迟恢复标记
+      const timerId = setTimeout(() => {
+        if (!isMountedRef.current || !mapInstance) {
+          console.warn("Component unmounted or map destroyed before markers could be restored.");
+          return;
+        }
+        markersRef.current.forEach(marker => {
+          if (marker) marker.setMap(mapInstance);
+        });
+        const validMarkers = markersRef.current.filter(m => m);
+        if (validMarkers.length > 0) {
+          mapInstance.setFitView(validMarkers, false, [50, 50, 50, 50]);
+        }
+        markerRestoreTimerRef.current = null;
+      }, 50);
+      markerRestoreTimerRef.current = timerId;
+    } catch (error) {
+      console.error('切换地图样式失败:', error);
+      const errorTimerId = setTimeout(() => {
+        if (!isMountedRef.current || !mapInstance) return;
+        markersRef.current.forEach(marker => {
+          if (marker) marker.setMap(mapInstance);
+        });
+        markerRestoreTimerRef.current = null;
+      }, 50);
+      markerRestoreTimerRef.current = errorTimerId;
     }
   }, [mapInstance]);
 
