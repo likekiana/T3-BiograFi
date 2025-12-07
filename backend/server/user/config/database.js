@@ -38,10 +38,96 @@ async function testConnection() {
 async function initDatabase() {
     try {
         await testConnection();
+        await ensureDatabaseExists();
         await ensureSchema();
+        await runMigrations();
         console.log('✅ 数据库初始化完成');
     } catch (error) {
         console.error('❌ 数据库初始化失败:', error);
+        throw error;
+    }
+}
+
+// 确保数据库存在
+async function ensureDatabaseExists() {
+    const mysql = require('mysql2/promise');
+    
+    // 创建不带database参数的连接
+    const tempConfig = {
+        ...dbConfig,
+        database: undefined
+    };
+    
+    const tempConn = await mysql.createConnection(tempConfig);
+    try {
+        // 创建数据库（如果不存在）
+        await tempConn.query(`CREATE DATABASE IF NOT EXISTS ${dbConfig.database} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+        console.log(`✅ 确保数据库 ${dbConfig.database} 存在`);
+    } finally {
+        await tempConn.end();
+    }
+}
+
+// 运行数据库迁移脚本
+async function runMigrations() {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const conn = await pool.getConnection();
+    try {
+        // 获取迁移目录下的所有SQL文件
+        const migrationsDir = path.join(__dirname, '..', 'migrations');
+        let sqlFiles = fs.readdirSync(migrationsDir)
+            .filter(file => file.endsWith('.sql'));
+        
+        // 确保init_database.sql首先执行，然后按文件名排序其他文件
+        const initFile = sqlFiles.find(file => file === 'init_database.sql');
+        if (initFile) {
+            sqlFiles = sqlFiles.filter(file => file !== initFile);
+            sqlFiles.sort();
+            sqlFiles.unshift(initFile); // 将init_database.sql放在第一位
+        } else {
+            sqlFiles.sort(); // 如果没有init_database.sql，就按默认排序
+        }
+
+        console.log(`📋 发现 ${sqlFiles.length} 个迁移文件`);
+
+        // 逐个执行迁移文件
+        for (const file of sqlFiles) {
+            const filePath = path.join(migrationsDir, file);
+            console.log(`
+🚀 执行迁移文件: ${file}`);
+            
+            // 读取SQL文件内容
+            const sqlContent = fs.readFileSync(filePath, 'utf8');
+            
+            // 分割SQL语句，处理多个语句情况
+            // 注意：这个简单的分割可能无法处理所有复杂情况，但适用于当前的迁移文件
+            const statements = sqlContent
+                .replace(/DELIMITER[\s\S]*?DELIMITER ;/g, '') // 移除DELIMITER命令和触发器定义
+                .split(';')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            // 逐个执行SQL语句
+            for (const statement of statements) {
+                try {
+                    await conn.query(statement);
+                } catch (error) {
+                    console.error(`  ❌ 执行语句失败: ${statement.substring(0, 100)}...`);
+                    console.error(`  错误信息: ${error.message}`);
+                    // 继续执行其他语句，不中断整个迁移过程
+                }
+            }
+            
+            console.log(`✅ 迁移文件执行成功: ${file}`);
+        }
+    } catch (error) {
+        console.error('❌ 迁移失败:', error.message);
+        throw error;
+    } finally {
+        conn.release();
+        console.log('✅ 基本表结构创建完成');
     }
 }
 
@@ -49,6 +135,11 @@ async function initDatabase() {
 async function ensureSchema() {
     const conn = await pool.getConnection();
     try {
+        console.log('🚀 确保基本表结构存在...');
+        
+        // 设置字符集和排序规则
+        await conn.query(`SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci`);
+        
         await conn.execute(`CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(64) NOT NULL UNIQUE,
@@ -58,6 +149,18 @@ async function ensureSchema() {
             last_login DATETIME NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+        
+        // 确保 users 表包含 settings JSON 列（用于保存用户个性化设置）
+        try {
+            const [cols] = await conn.execute(`SHOW COLUMNS FROM users LIKE 'settings'`);
+            if (!Array.isArray(cols) || cols.length === 0) {
+                await conn.execute(`ALTER TABLE users ADD COLUMN settings JSON NULL`);
+                await conn.execute(`UPDATE users SET settings = '{}' WHERE settings IS NULL`);
+                console.log('✅ 已为 users 表添加 settings 列');
+            }
+        } catch (e) {
+            console.warn('⚠️ 检查/添加 users.settings 列失败:', e.message);
+        }
 
         await conn.execute(`CREATE TABLE IF NOT EXISTS projects (
             id VARCHAR(64) PRIMARY KEY,
