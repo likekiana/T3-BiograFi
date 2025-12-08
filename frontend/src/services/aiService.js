@@ -10,7 +10,7 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 解析结果
    */
-  async analyzeClassicalText(text, model = 'am-hrzab73jvugw') {
+  async analyzeClassicalText(text, model = 'deepseek-chat') {
     try {
       const result = await api.ai.analyzeText(text, model);
       return result.result || '';
@@ -27,7 +27,7 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 答案
    */
-  async askQuestion(text, question, model = 'am-hrzab73jvugw') {
+  async askQuestion(text, question, model = 'deepseek-chat') {
     try {
       const result = await api.ai.askQuestion(text, question, model);
       return result.result || '';

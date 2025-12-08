@@ -127,7 +127,6 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  margin-left: auto;
 }
 
 .save-btn-compact:hover:not(:disabled) {
@@ -143,6 +142,62 @@
 }
 
 .save-btn-compact i {
+  width: 16px;
+  height: 16px;
+}
+
+/* 操作按钮样式 - 用于返回项目管理 */
+.action-btn-compact {
+  padding: 6px 14px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.action-btn-compact:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.action-btn-compact i {
+  width: 16px;
+  height: 16px;
+}
+
+/* 删除按钮样式 - 用于删除文档 */
+.delete-btn-compact {
+  padding: 6px 14px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.delete-btn-compact:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.delete-btn-compact i {
   width: 16px;
   height: 16px;
 }

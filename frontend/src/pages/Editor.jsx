@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 const Editor = ({ document, project, onBack, onSave }) => {
   const {
     updateDocument,
+    deleteDocument,
     getEntityAnnotations,
     addEntityAnnotation,
     deleteEntityAnnotation,
@@ -1063,6 +1064,46 @@ return (
           >
             <i data-feather="save" data-rendered="false"></i>
             {saveStatus === 'saving' ? '保存中' : t('save')}
+          </button>
+          
+          {/* 返回项目管理按钮 */}
+          <button
+            className="action-btn-compact"
+            onClick={() => {
+              if (onBack) {
+                onBack();
+              } else {
+                navigate('/projects');
+              }
+            }}
+            title="返回项目管理界面"
+          >
+            <i data-feather="arrow-left" data-rendered="false"></i>
+            返回项目
+          </button>
+          
+          {/* 删除文档按钮 */}
+          <button
+            className="delete-btn-compact"
+            onClick={async () => {
+              if (window.confirm('确定要删除此文档吗？删除后无法恢复。')) {
+                try {
+                  await deleteDocument(document.id);
+                  if (onBack) {
+                    onBack();
+                  } else {
+                    navigate('/projects');
+                  }
+                } catch (error) {
+                  console.error('删除文档失败:', error);
+                  alert(`删除文档失败: ${error.message || '未知错误'}`);
+                }
+              }
+            }}
+            title="删除文档"
+          >
+            <i data-feather="trash-2" data-rendered="false"></i>
+            删除文档
           </button>
           
           {saveStatus === 'saved' && (

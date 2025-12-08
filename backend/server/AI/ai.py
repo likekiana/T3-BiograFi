@@ -61,13 +61,16 @@ def generate_response(prompt, model=None):
             json=payload,
             timeout=TIMEOUT
         )
-        response.raise_for_status()
+        if not response.ok:
+            # 获取详细的错误信息
+            error_info = response.text
+            raise Exception('调用 DeepSeek API 失败: HTTP {} - {}'.format(response.status_code, error_info))
         
         result = response.json()
         if 'choices' in result and len(result['choices']) > 0:
             return result['choices'][0]['message']['content'].strip()
         else:
-            raise ValueError('API 返回格式异常')
+            raise ValueError('API 返回格式异常: {}'.format(json.dumps(result)))
             
     except requests.exceptions.RequestException as e:
         raise Exception('调用 DeepSeek API 失败: {}'.format(str(e)))

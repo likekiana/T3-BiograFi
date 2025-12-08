@@ -63,26 +63,24 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
       if (timelineEvents.length === 0) return;
       
       setLoading(true);
-      const newSummaries = { ...summaries };
+      // 创建一个新对象，避免引用问题
+      const newSummaries = {};
       
       for (const event of timelineEvents) {
-        if (!newSummaries[event.id]) {
-          try {
-            // 使用AI服务生成概括
-            const prompt = `请用简洁的语言概括以下文本中与时间"${event.time}"相关的事件，重点描述发生了什么事情，涉及哪些人物和地点：
-${event.context}`;
-            
-            // 使用aiService的askQuestion方法生成概括
-            const summary = await aiService.askQuestion(event.context, prompt);
-            newSummaries[event.id] = summary;
-          } catch (error) {
-            console.error(`生成时间${event.time}的概括失败:`, error);
-            newSummaries[event.id] = '无法生成概括';
-          }
+        try {
+          // 使用AI服务生成概括
+          const question = `请用简洁的语言概括以下文本中与时间"${event.time}"相关的事件，重点描述发生了什么事情，涉及哪些人物和地点。`;
           
-          // 避免请求过于频繁
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // 使用aiService的askQuestion方法生成概括
+          const summary = await aiService.askQuestion(event.context, question);
+          newSummaries[event.id] = summary;
+        } catch (error) {
+          console.error(`生成时间${event.time}的概括失败:`, error);
+          newSummaries[event.id] = '无法生成概括';
         }
+        
+        // 避免请求过于频繁
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       setSummaries(newSummaries);
@@ -90,7 +88,7 @@ ${event.context}`;
     };
     
     generateSummaries();
-  }, [timelineEvents, summaries]);
+  }, [timelineEvents]);
 
   return (
     <div className="timeline-visualization">
