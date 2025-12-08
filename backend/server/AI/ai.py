@@ -42,7 +42,7 @@ def generate_response(prompt, model=None):
     """
     调用 AI API 生成响应，支持 DeepSeek 和 荀子古汉语模型
     """
-    model = model or DEEPSEEK_MODEL
+    model = model or 'xunzi-qwen2'
     
     # 根据模型选择对应的 API
     if model == 'xunzi-qwen2':
@@ -134,7 +134,7 @@ def analyze_text():
         return jsonify({'error': '请提供要分析的文本'}), 400
     
     input_text = data['text']
-    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
+    model = data.get('model', 'xunzi-qwen2')  # 支持前端指定模型
     
     prompt = f"""
 请对"{input_text}"进行详细解释。你的解释应该尽可能全面,包含以下方面:
@@ -158,7 +158,7 @@ def qa_text():
     
     input_text = data['text']
     question = data['question']
-    model = data.get('model', DEEPSEEK_MODEL)  # 支持前端指定模型
+    model = data.get('model', 'xunzi-qwen2')  # 支持前端指定模型
     
     prompt = f"""
 原文："{input_text}"
@@ -207,7 +207,7 @@ def auto_annotate():
 """
     
     try:
-        response = generate_response(prompt, DEEPSEEK_MODEL)
+        response = generate_response(prompt, 'xunzi-qwen2')
         # 尝试解析返回的JSON
         # 清理可能的markdown代码块标记
         cleaned = response.strip()
