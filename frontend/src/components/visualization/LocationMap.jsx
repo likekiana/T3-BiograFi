@@ -199,7 +199,7 @@ class LocationMatcher {
   }
 }
 
-const LocationMap = ({ annotations, filters }) => {
+const LocationMap = ({ annotations, filters, isProjectView = false }) => {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);

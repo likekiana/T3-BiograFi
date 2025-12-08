@@ -47,7 +47,7 @@ const preloadAMapForHeatmap = () => {
   document.head.appendChild(script);
 };
 
-const HeatmapVisualization = ({ annotations, filters, content }) => {
+const HeatmapVisualization = ({ annotations, filters, content, isProjectView = false }) => {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [heatmapInstance, setHeatmapInstance] = useState(null);

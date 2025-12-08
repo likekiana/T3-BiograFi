@@ -5,6 +5,8 @@ import { t } from '../../utils/language';
 import TimelineVisualization from './TimelineVisualization';
 import LocationMap from './LocationMap';
 import RelationshipGraph from './RelationshipGraph';
+import HeatmapVisualization from './HeatmapVisualization';
+import { Thermometer, MapPin } from 'react-feather';
 import { useDocuments } from '../../hooks/useDocuments';
 import { documentService } from '../../services/documentService';
 import '../../styles/components/Visualization/DataVisualization.css';
@@ -183,10 +185,42 @@ const ProjectVisualization = () => {
   
   const stats = getStats();
   const tabs = [
-    { id: 'timeline', name: t('timeline'), icon: 'clock', description: t('timeline_description') },
-    { id: 'locations', name: t('locations'), icon: 'map-pin', description: t('locations_description') },
-    { id: 'relationships', name: t('relationships'), icon: 'git-branch', description: t('relationships_description') }
+    { 
+      id: 'timeline', 
+      name: t('timeline'), 
+      icon: 'clock', 
+      description: t('timeline_description') 
+    },
+    { 
+      id: 'locations', 
+      name: t('locations'), 
+      icon: 'map-pin', 
+      description: t('locations_description') 
+    },
+    { 
+      id: 'heatmap', 
+      name: '时空热力图', 
+      icon: 'thermometer', 
+      description: 'AI分析的人物时空分布热力图' 
+    },
+    { 
+      id: 'relationships', 
+      name: t('relationships'), 
+      icon: 'git-branch', 
+      description: t('relationships_description') 
+    }
   ];
+  
+  // 根据当前选项卡显示对应的图标
+  const getTabIcon = (tabId) => {
+    switch(tabId) {
+      case 'timeline': return 'clock';
+      case 'locations': return 'map-pin';
+      case 'heatmap': return 'thermometer';
+      case 'relationships': return 'git-branch';
+      default: return 'bar-chart-2';
+    }
+  };
   
   // 修复：直接使用中文标签映射
   const getEntityCount = (filterKey) => {
@@ -281,7 +315,7 @@ const ProjectVisualization = () => {
                   className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <i data-feather={tab.icon}></i>
+                  <i data-feather={getTabIcon(tab.id)}></i>
                   <div className="tab-text">
                     <div className="tab-title">{tab.name}</div>
                     <div className="tab-description">
@@ -322,6 +356,50 @@ const ProjectVisualization = () => {
               </div>
             </div>
           </div>
+
+          {/* 当前模式说明 */}
+          <div className="control-section">
+            <h3>
+              <i data-feather="info"></i>
+              当前模式说明
+            </h3>
+            <div className="mode-description">
+              {activeTab === 'locations' && (
+                <div className="mode-info">
+                  <div className="mode-icon">
+                    <MapPin size={20} />
+                  </div>
+                  <div className="mode-content">
+                    <h4>地点分布图模式</h4>
+                    <p>显示文本中提及的所有地点及其出现频率</p>
+                    <ul>
+                      <li>• 智能地名匹配（历史/现代）</li>
+                      <li>• 3D建筑物显示</li>
+                      <li>• 精确的地理坐标定位</li>
+                      <li>• 按出现次数大小标记</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {activeTab === 'heatmap' && (
+                <div className="mode-info">
+                  <div className="mode-icon">
+                    <Thermometer size={20} />
+                  </div>
+                  <div className="mode-content">
+                    <h4>时空热力图模式</h4>
+                    <p>AI分析人物在时空维度上的分布密度</p>
+                    <ul>
+                      <li>• AI智能时空分析</li>
+                      <li>• 人物活动密度可视化</li>
+                      <li>• 多维数据分析（频率、时长、强度）</li>
+                      <li>• 可折叠控制面板</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 右侧可视化内容 */}
@@ -339,6 +417,14 @@ const ProjectVisualization = () => {
               <LocationMap 
                 annotations={allAnnotations}
                 filters={filters}
+                isProjectView={true}
+              />
+            )}
+            {activeTab === 'heatmap' && (
+              <HeatmapVisualization 
+                annotations={allAnnotations}
+                filters={filters}
+                content={combinedContent}
                 isProjectView={true}
               />
             )}

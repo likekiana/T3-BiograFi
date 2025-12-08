@@ -626,7 +626,7 @@ const Graph3D = ({ data, onNodeClick, autoRotate }) => {
 };
 
 // 主组件
-const RelationshipGraph = ({ annotations, filters, content }) => {
+const RelationshipGraph = ({ annotations, filters, content, isProjectView = false }) => {
   const containerRef = useRef(null);
   const [viewMode, setViewMode] = useState('2D'); // '2D' 或 '3D'
   const [autoRotate, setAutoRotate] = useState(true);

@@ -4,7 +4,7 @@ import '../../styles/components/Visualization/TimelineVisualization.css';
 import { aiService } from '../../services/aiService';
 import html2canvas from 'html2canvas';
 
-const TimelineVisualization = ({ annotations, filters, content }) => {
+const TimelineVisualization = ({ annotations, filters, content, isProjectView = false }) => {
   const [summaries, setSummaries] = useState({});
   const [loading, setLoading] = useState(false);
   const timelineRef = useRef(null);
