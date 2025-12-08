@@ -205,11 +205,30 @@
   position: absolute;
   top: 20px;
   right: 20px;
+  background: transparent !important; /* 移除背景 */
+  border-radius: 8px;
+  padding: 0 !important; /* 移除内边距 */
+  box-shadow: none !important; /* 移除阴影 */
+  z-index: 100;
+  backdrop-filter: none !important; /* 移除模糊效果 */
+  min-width: auto; /* 移除最小宽度 */
+}
+
+.map-controls .controls-header {
+  display: none !important; /* 隐藏标题栏 */
+}
+
+.map-controls .controls-buttons {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  z-index: 1000;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.85); /* 按钮组背景 */
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
+
 
 .control-btn {
   width: 40px;
@@ -494,16 +513,6 @@
     bottom: 10px;
     left: 10px;
   }
-
-  .map-controls {
-    top: 10px;
-    right: 10px;
-  }
-
-  /* .control-btn {
-    width: 36px;
-    height: 36px;
-  } */
 
   .map-status {
     bottom: 10px;
@@ -935,4 +944,85 @@
 
 .retry-button:hover {
   background: #0056b3;
+}
+
+/* 底部控制按钮组 */
+.map-controls-bottom {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  background: transparent;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.control-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: transparent;
+  border-radius: 8px;
+  padding: 0;
+}
+
+/* 简化按钮样式，让它们更紧凑 */
+.map-controls-bottom .control-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  color: #333;
+  backdrop-filter: blur(4px);
+}
+
+.map-controls-bottom .control-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  color: #007bff;
+}
+
+.map-controls-bottom .control-btn svg {
+  stroke-width: 2;
+  transition: all 0.2s;
+}
+
+.map-controls-bottom .control-btn:hover svg {
+  stroke: #007bff;
+}
+
+/* 激活状态的按钮 */
+.map-controls-bottom .control-btn.active {
+  background: rgba(0, 123, 255, 0.9);
+  color: white;
+}
+
+.map-controls-bottom .control-btn.active svg {
+  stroke: white;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .map-controls-bottom {
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  .map-controls-bottom .control-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .map-controls-bottom .control-btn svg {
+    width: 16px;
+    height: 16px;
+  }
 }

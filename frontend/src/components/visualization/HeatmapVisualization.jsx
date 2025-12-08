@@ -3,6 +3,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import '../../styles/components/Visualization/HeatmapVisualization.css';
 import BubbleStyleSelector from './BubbleStyleSelector';
 import { heatmapAIService } from '../../services/heatmapAIService';
+import { AMAP_CONFIG, MAP_STYLES, getStyleById } from '../../utils/mapConfig';
 import {
   Plus,
   Minus,
@@ -18,32 +19,33 @@ import {
   BarChart2
 } from 'react-feather';
 
-// 高德地图API配置
-const AMAP_CONFIG = {
-  key: '0af744d9c966d1790972694dfa5509d6',
-  version: '2.0'
-};
-
-// 地图样式配置
-const MAP_STYLES = {
-  grey: { name: '商务灰', style: 'amap://styles/grey' },
-  light: { name: '清新浅色', style: 'amap://styles/light' },
-  normal: { name: '标准蓝', style: 'amap://styles/normal' },
-  dark: { name: '深色夜晚', style: 'amap://styles/dark' },
-  fresh: { name: '清新绿', style: 'amap://styles/fresh' },
-  '8e18d6f3c8e4c24645505580481f8d25': { name: '无底图', style: 'amap://styles/8e18d6f3c8e4c24645505580481f8d25' },
-  whitesmoke: { name: '素雅白', style: 'amap://styles/whitesmoke' },
-  graffiti: { name: '涂鸦风', style: 'amap://styles/4e349627b3a2e06d4b1b1e6e661c8c09' }
-};
-
-const getStyleById = (id) => {
-  return MAP_STYLES[id]?.style || MAP_STYLES.grey.style;
-};
-
-// 全局状态
-let globalHeatmapInstance = null;
+// 与LocationMap共享全局状态
 let isAMapLoaded = false;
-let isMapInitializing = false;
+
+// 预加载地图API（如果需要）
+const preloadAMapForHeatmap = () => {
+  if (typeof window === 'undefined' || isAMapLoaded || window.AMap) {
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}&plugin=AMap.HeatMap`;
+  script.async = true;
+  script.defer = true;
+  script.crossOrigin = 'anonymous';
+
+  script.onload = () => {
+    console.log('AMap with HeatMap plugin loaded');
+    isAMapLoaded = true;
+  };
+
+  script.onerror = (error) => {
+    console.error('Failed to load AMap for heatmap:', error);
+  };
+
+  script.className = 'amap-heatmap-script';
+  document.head.appendChild(script);
+};
 
 const HeatmapVisualization = ({ annotations, filters, content }) => {
   const mapRef = useRef(null);
@@ -52,7 +54,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
   const [isAMapReady, setIsAMapReady] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [heatmapData, setHeatmapData] = useState(null);
-  const [personActivities, setPersonActivities] = useState([]); // 修复：添加personActivities状态
+  const [personActivities, setPersonActivities] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState('all');
   const [currentMapStyle, setCurrentMapStyle] = useState('dark');
   const [analysisResult, setAnalysisResult] = useState('');
@@ -64,19 +66,297 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
 
   // 控制面板可见性状态
   const [panelVisibility, setPanelVisibility] = useState({
-    mapControls: true,       // 地图控制按钮
-    aiSummary: true,         // AI分析摘要
-    personFilter: true,      // 人物筛选控件
-    heatmapLegend: true,     // 热力图例
-    dataAnalysis: true       // 数据分析面板
+    mapControls: true,
+    aiSummary: true,
+    personFilter: true,
+    heatmapLegend: true,
+    dataAnalysis: true
   });
 
   // 折叠面板状态
   const [collapsedPanels, setCollapsedPanels] = useState({
-    aiSummary: false,        // AI摘要可折叠
-    personFilter: false,     // 人物筛选可折叠
-    dataAnalysis: false      // 数据分析可折叠
+    aiSummary: false,
+    personFilter: false,
+    dataAnalysis: false
   });
+
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // 清理热力图实例
+      if (heatmapInstance) {
+        try {
+          heatmapInstance.setMap(null);
+        } catch (error) {
+          console.warn('清理热力图时出错:', error);
+        }
+      }
+    };
+  }, [heatmapInstance]);
+
+  // 检查AMap是否已加载 - 使用与LocationMap相似的逻辑
+  useEffect(() => {
+    const checkAMap = () => {
+      if (window.AMap && window.AMap.Map && window.AMap.HeatMap) {
+        isAMapLoaded = true;
+        setIsAMapReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    // 立即检查
+    if (checkAMap()) {
+      return;
+    }
+
+    // 如果未加载，尝试预加载
+    preloadAMapForHeatmap();
+
+    // 设置轮询检查
+    let checkInterval;
+    const maxChecks = 30;
+    let checkCount = 0;
+
+    checkInterval = setInterval(() => {
+      checkCount++;
+      if (checkAMap() || checkCount >= maxChecks) {
+        clearInterval(checkInterval);
+        if (!isAMapLoaded) {
+          console.error('AMap加载失败，请检查网络连接');
+        }
+      }
+    }, 200);
+
+    return () => clearInterval(checkInterval);
+  }, []);
+
+  // 初始化地图 - 参考LocationMap的稳定初始化方式
+  useEffect(() => {
+    if (!isAMapReady || !mapRef.current || mapInstance) {
+      return;
+    }
+
+    console.log('Initializing heatmap map...');
+
+    let map = null;
+
+    try {
+      if (!window.AMap || !window.AMap.Map) {
+        console.error('AMap not found, retrying...');
+        setIsAMapReady(false);
+        
+        // 重试加载AMap
+        const retryScript = document.createElement('script');
+        retryScript.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}&plugin=AMap.HeatMap`;
+        retryScript.async = true;
+        retryScript.defer = true;
+        retryScript.crossOrigin = 'anonymous';
+        retryScript.onload = () => {
+          console.log('AMap loaded via retry');
+          setIsAMapReady(true);
+        };
+        document.head.appendChild(retryScript);
+        return;
+      }
+
+      const mapOptions = {
+        zoom: 5,
+        center: [116.397428, 39.90923],
+        viewMode: '2D',
+        mapStyle: getStyleById(currentMapStyle),
+        resizeEnable: true,
+        animateEnable: false,
+        doubleClickZoom: false,
+        keyboardEnable: false,
+        scrollWheel: true,
+        touchZoom: false,
+        zooms: [2, 20],
+      };
+
+      console.log('Creating AMap for heatmap...');
+      map = new window.AMap.Map(mapRef.current, mapOptions);
+
+
+      // 监听地图加载完成
+      map.on('complete', () => {
+        console.log('Heatmap map loaded completely');
+      });
+
+      if (isMountedRef.current) {
+        setMapInstance(map);
+      }
+
+      console.log('Heatmap map initialized successfully');
+
+    } catch (error) {
+      console.error('Heatmap map initialization failed:', error);
+      if (mapRef.current && isMountedRef.current) {
+        mapRef.current.innerHTML = `
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          color: #666;
+          text-align: center;
+          padding: 20px;
+        ">
+          <div style="font-size: 48px; margin-bottom: 20px;">🔥</div>
+          <h3 style="margin-bottom: 10px;">热力图加载失败</h3>
+          <p style="margin-bottom: 20px;">${error.message}</p>
+          <button onclick="location.reload()" style="
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+          ">
+            重新加载
+          </button>
+        </div>
+      `;
+      }
+    }
+
+    // 简化清理逻辑，不在这里销毁地图
+    return () => {
+      // 保持地图实例不被销毁
+    };
+  }, [isAMapReady, currentMapStyle]);
+
+  // 使用AI分析数据并生成热力图
+  useEffect(() => {
+    if (!content || !annotations || !filters.persons || !filters.places) return;
+
+    const analyzeAndGenerateHeatmap = async () => {
+      setIsAnalyzing(true);
+      setAnalysisProgress({
+        step: 1,
+        totalSteps: 3,
+        message: '正在使用AI分析人物时空分布...'
+      });
+
+      try {
+        const result = await heatmapAIService.generateHeatmapData(content, annotations);
+
+        setAnalysisProgress({
+          step: 2,
+          totalSteps: 3,
+          message: '正在处理地理坐标...'
+        });
+
+        setHeatmapData(result.heatmapPoints);
+        setAnalysisResult(result.aiAnalysis);
+        setPersonActivities(result.personActivities);
+
+        console.log('AI分析完成:', result);
+
+        setAnalysisProgress({
+          step: 3,
+          totalSteps: 3,
+          message: '正在生成热力图...'
+        });
+
+      } catch (error) {
+        console.error('热力图数据分析失败:', error);
+        setAnalysisResult('分析失败: ' + error.message);
+      } finally {
+        if (isMountedRef.current) {
+          setIsAnalyzing(false);
+          setAnalysisProgress({
+            step: 0,
+            totalSteps: 3,
+            message: ''
+          });
+        }
+      }
+    };
+
+    analyzeAndGenerateHeatmap();
+  }, [content, annotations, filters]);
+
+  // 创建热力图
+  useEffect(() => {
+    if (!mapInstance || !heatmapData || heatmapData.length === 0) {
+      return;
+    }
+
+    // 清理现有热力图
+    if (heatmapInstance) {
+      try {
+        heatmapInstance.setMap(null);
+      } catch (error) {
+        console.warn('清理热力图时出错:', error);
+      }
+    }
+
+    try {
+      // 过滤数据
+      const points = heatmapData
+        .filter(item => selectedPerson === 'all' || item.person === selectedPerson)
+        .map(item => ({
+          lng: item.lng,
+          lat: item.lat,
+          count: item.value,
+          person: item.person,
+          place: item.place,
+          frequency: item.frequency,
+          duration: item.duration,
+          intensity: item.intensity
+        }));
+
+      if (points.length === 0) return;
+
+      // 创建热力图
+      const heatmap = new window.AMap.HeatMap(mapInstance, {
+        radius: 40,
+        opacity: [0, 0.8],
+        gradient: {
+          0.1: 'rgb(0, 255, 0)',
+          0.3: 'rgb(255, 255, 0)',
+          0.5: 'rgb(255, 165, 0)',
+          0.8: 'rgb(255, 69, 0)',
+          1.0: 'rgb(139, 0, 0)'
+        },
+        zIndex: 100,
+        zooms: [3, 18]
+      });
+
+      // 计算最大值
+      const maxCount = Math.max(...points.map(p => p.count));
+      heatmap.setDataSet({
+        data: points,
+        max: maxCount > 0 ? maxCount * 1.2 : 10
+      });
+
+      if (isMountedRef.current) {
+        setHeatmapInstance(heatmap);
+      }
+
+      // 调整视野显示所有数据点
+      const bounds = new window.AMap.Bounds();
+      points.forEach(point => {
+        bounds.extend(new window.AMap.LngLat(point.lng, point.lat));
+      });
+
+      setTimeout(() => {
+        if (mapInstance && bounds.getSouthWest() && isMountedRef.current) {
+          mapInstance.setBounds(bounds, false, [50, 50, 50, 50]);
+        }
+      }, 500);
+
+      console.log('热力图创建成功，数据点数量:', points.length);
+
+    } catch (error) {
+      console.error('创建热力图失败:', error);
+    }
+  }, [mapInstance, heatmapData, selectedPerson]);
 
   // 切换面板可见性
   const togglePanel = useCallback((panelName) => {
@@ -100,14 +380,12 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
     const allCollapsed = Object.values(collapsedPanels).every(v => v === true);
 
     if (allVisible && !allCollapsed) {
-      // 如果所有面板都展开，则全部折叠
       setCollapsedPanels({
         aiSummary: true,
         personFilter: true,
         dataAnalysis: true
       });
     } else if (allCollapsed) {
-      // 如果所有面板都折叠，则全部显示
       setPanelVisibility({
         mapControls: true,
         aiSummary: true,
@@ -121,7 +399,6 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
         dataAnalysis: false
       });
     } else {
-      // 否则全部显示并展开
       setPanelVisibility({
         mapControls: true,
         aiSummary: true,
@@ -147,212 +424,6 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
       dataAnalysis: false
     });
   }, []);
-
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (heatmapInstance) {
-        heatmapInstance.setMap(null);
-      }
-    };
-  }, [heatmapInstance]);
-
-  // 检查AMap是否已加载
-  useEffect(() => {
-    const checkAMap = () => {
-      if (window.AMap && window.AMap.Map) {
-        isAMapLoaded = true;
-        setIsAMapReady(true);
-        return true;
-      }
-      return false;
-    };
-
-    if (checkAMap()) return;
-
-    let checkInterval;
-    const maxChecks = 30;
-    let checkCount = 0;
-
-    checkInterval = setInterval(() => {
-      checkCount++;
-      if (checkAMap() || checkCount >= maxChecks) {
-        clearInterval(checkInterval);
-      }
-    }, 200);
-
-    return () => clearInterval(checkInterval);
-  }, []);
-
-  // 初始化地图
-  useEffect(() => {
-    if (!isAMapReady || !mapRef.current || globalHeatmapInstance || isMapInitializing) {
-      return;
-    }
-
-    console.log('Initializing heatmap map...');
-    isMapInitializing = true;
-
-    try {
-      if (!window.AMap || !window.AMap.Map) {
-        console.error('AMap not found for heatmap');
-        setIsAMapReady(false);
-        isMapInitializing = false;
-        return;
-      }
-
-      const mapOptions = {
-        zoom: 5,
-        center: [116.397428, 39.90923],
-        viewMode: '2D',
-        mapStyle: getStyleById(currentMapStyle),
-        resizeEnable: true,
-        animateEnable: false,
-        doubleClickZoom: false,
-        keyboardEnable: false,
-        scrollWheel: true,
-        touchZoom: false
-      };
-
-      const map = new window.AMap.Map(mapRef.current, mapOptions);
-      globalHeatmapInstance = map;
-
-      if (isMountedRef.current) {
-        setMapInstance(map);
-      }
-
-      console.log('Heatmap map initialized successfully');
-    } catch (error) {
-      console.error('Heatmap map initialization failed:', error);
-      isMapInitializing = false;
-    }
-
-    return () => {
-      isMapInitializing = false;
-    };
-  }, [isAMapReady, currentMapStyle]);
-
-  // 使用AI分析数据并生成热力图
-  useEffect(() => {
-    if (!content || !annotations || !filters.persons || !filters.places) return;
-
-    const analyzeAndGenerateHeatmap = async () => {
-      setIsAnalyzing(true);
-      setAnalysisProgress({
-        step: 1,
-        totalSteps: 3,
-        message: '正在使用AI分析人物时空分布...'
-      });
-
-      try {
-        // 步骤1: 使用AI分析人物时空分布
-        const result = await heatmapAIService.generateHeatmapData(content, annotations);
-
-        if (!isMountedRef.current) return;
-
-        setAnalysisProgress({
-          step: 2,
-          totalSteps: 3,
-          message: '正在处理地理坐标...'
-        });
-
-        // 更新状态
-        setHeatmapData(result.heatmapPoints);
-        setAnalysisResult(result.aiAnalysis);
-        setPersonActivities(result.personActivities);
-
-        console.log('AI分析完成:', result);
-
-        setAnalysisProgress({
-          step: 3,
-          totalSteps: 3,
-          message: '正在生成热力图...'
-        });
-
-      } catch (error) {
-        console.error('热力图数据分析失败:', error);
-        setAnalysisResult('分析失败: ' + error.message);
-      } finally {
-        setIsAnalyzing(false);
-        setAnalysisProgress({
-          step: 0,
-          totalSteps: 3,
-          message: ''
-        });
-      }
-    };
-
-    analyzeAndGenerateHeatmap();
-  }, [content, annotations, filters]);
-
-  // 创建热力图
-  useEffect(() => {
-    if (!mapInstance || !heatmapData || heatmapData.length === 0) return;
-
-    // 清除现有的热力图
-    if (heatmapInstance) {
-      heatmapInstance.setMap(null);
-    }
-
-    try {
-      // 准备热力图数据
-      const points = heatmapData
-        .filter(item => selectedPerson === 'all' || item.person === selectedPerson)
-        .map(item => ({
-          lng: item.lng,
-          lat: item.lat,
-          count: item.value,
-          person: item.person,
-          place: item.place,
-          frequency: item.frequency,
-          duration: item.duration,
-          intensity: item.intensity
-        }));
-
-      if (points.length === 0) return;
-
-      // 创建热力图插件
-      const heatmap = new window.AMap.HeatMap(mapInstance, {
-        radius: 40, // 热力图半径，根据数据密度调整
-        opacity: [0, 0.8],
-        gradient: {
-          0.1: 'rgb(0, 255, 0)',   // 绿色 - 活动较少
-          0.3: 'rgb(255, 255, 0)', // 黄色 - 活动中等  
-          0.5: 'rgb(255, 165, 0)', // 橙色 - 活动较多
-          0.8: 'rgb(255, 69, 0)',  // 红色 - 活动密集
-          1.0: 'rgb(139, 0, 0)'    // 深红 - 活动非常密集
-        },
-        zIndex: 100,
-        zooms: [3, 18]
-      });
-
-      // 设置数据集
-      heatmap.setDataSet({
-        data: points,
-        max: Math.max(...points.map(p => p.count)) * 1.2
-      });
-
-      setHeatmapInstance(heatmap);
-
-      // 调整视野以显示所有热力图点
-      const bounds = new window.AMap.Bounds();
-      points.forEach(point => {
-        bounds.extend(new window.AMap.LngLat(point.lng, point.lat));
-      });
-
-      setTimeout(() => {
-        if (mapInstance && bounds.getSouthWest()) {
-          mapInstance.setBounds(bounds, false, [50, 50, 50, 50]);
-        }
-      }, 500);
-
-    } catch (error) {
-      console.error('创建热力图失败:', error);
-    }
-  }, [mapInstance, heatmapData, selectedPerson]);
 
   // 地图控制函数
   const handleZoomIn = useCallback(() => {
@@ -385,16 +456,19 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
 
   // 切换地图样式
   const handleChangeMapStyle = useCallback((styleUrl) => {
-    if (mapInstance) {
-      try {
-        mapInstance.setMapStyle(styleUrl);
-        const styleEntry = Object.entries(MAP_STYLES).find(([_, value]) => value.style === styleUrl);
-        if (styleEntry) {
-          setCurrentMapStyle(styleEntry[0]);
-        }
-      } catch (error) {
-        console.error('切换地图样式失败:', error);
+    if (!mapInstance) return;
+    
+    try {
+      mapInstance.setMapStyle(styleUrl);
+      
+      // 更新当前选中的样式
+      const styleEntry = Object.entries(MAP_STYLES).find(([_, value]) => value.style === styleUrl);
+      if (styleEntry) {
+        setCurrentMapStyle(styleEntry[0]);
+        console.log('Map style changed to:', styleEntry[0]);
       }
+    } catch (error) {
+      console.error('切换地图样式失败:', error);
     }
   }, [mapInstance]);
 
@@ -411,7 +485,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
 
     try {
       const result = await heatmapAIService.generateHeatmapData(content, annotations);
-
+      
       if (isMountedRef.current) {
         setHeatmapData(result.heatmapPoints);
         setAnalysisResult(result.aiAnalysis);
@@ -420,12 +494,14 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
     } catch (error) {
       console.error('重新分析失败:', error);
     } finally {
-      setIsAnalyzing(false);
-      setAnalysisProgress({
-        step: 0,
-        totalSteps: 3,
-        message: ''
-      });
+      if (isMountedRef.current) {
+        setIsAnalyzing(false);
+        setAnalysisProgress({
+          step: 0,
+          totalSteps: 3,
+          message: ''
+        });
+      }
     }
   }, [content, annotations]);
 
@@ -481,6 +557,21 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
           <div className="loading-map">
             <div className="loading-spinner"></div>
             <p>正在加载地图引擎...</p>
+            <p className="loading-tip">如果长时间未加载，请检查网络连接</p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: '20px',
+                padding: '8px 16px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              重新加载
+            </button>
           </div>
         </div>
       </div>
@@ -489,6 +580,26 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
 
   return (
     <div className="heatmap-visualization">
+      <div className="heatmap-title">
+        <span style={{
+          fontWeight: 700,
+          fontSize: '2rem',
+          background: 'linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '2px'
+        }}>
+          人物时空热力图
+        </span>
+        <div style={{
+          height: 2,
+          width: 120,
+          background: 'linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%)',
+          borderRadius: 2,
+          margin: '8px auto 0'
+        }} />
+      </div>
+
       <div className="map-container">
         <div className="amap-container" style={{ position: 'relative' }}>
           {/* 地图容器 */}
@@ -527,48 +638,9 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             />
           )}
 
-          {/* 全局面板控制按钮 */}
-          <div className="global-panel-controls">
-            <button
-              className="panel-control-btn toggle-all"
-              onClick={toggleAllPanels}
-              title="切换所有面板"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-            </button>
-            <button
-              className="panel-control-btn hide-all"
-              onClick={hideAllPanels}
-              title="隐藏所有面板"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18"></path>
-                <path d="M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-
-          {/* 地图控制按钮 - 有隐藏按钮 */}
+          {/* 地图控制按钮 */}
           {panelVisibility.mapControls && (
             <div className="map-controls">
-              <div className="controls-header">
-                <span>地图控制</span>
-                <button
-                  className="panel-hide-btn"
-                  onClick={() => togglePanel('mapControls')}
-                  title="隐藏"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18"></path>
-                    <path d="M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
               <div className="controls-buttons">
                 <button className="control-btn" onClick={handleZoomIn} title="放大">
                   <Plus size={18} />
@@ -594,7 +666,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             </div>
           )}
 
-          {/* AI分析结果摘要 - 有折叠和隐藏按钮 */}
+          {/* AI分析结果摘要 */}
           {analysisResult && !isAnalyzing && panelVisibility.aiSummary && (
             <div className={`ai-analysis-summary ${collapsedPanels.aiSummary ? 'collapsed' : ''}`}>
               <div className="summary-header">
@@ -637,7 +709,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             </div>
           )}
 
-          {/* 人物筛选控件 - 有折叠和隐藏按钮 */}
+          {/* 人物筛选控件 */}
           {heatmapData && heatmapData.length > 0 && panelVisibility.personFilter && (
             <div className={`person-filter-controls ${collapsedPanels.personFilter ? 'collapsed' : ''}`}>
               <div className="filter-header">
@@ -706,7 +778,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             </div>
           )}
 
-          {/* 热力图图例 - 有隐藏按钮 */}
+          {/* 热力图图例 */}
           {panelVisibility.heatmapLegend && (
             <div className="heatmap-legend">
               <div className="legend-header">
@@ -778,7 +850,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             </div>
           )}
 
-          {/* 数据分析面板 - 有折叠和隐藏按钮 */}
+          {/* 数据分析面板 */}
           {heatmapData && heatmapData.length > 0 && panelVisibility.dataAnalysis && (
             <div className={`data-analysis-panel ${collapsedPanels.dataAnalysis ? 'collapsed' : ''}`}>
               <div className="panel-header">
@@ -850,7 +922,7 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
             </div>
           )}
 
-          {/* 面板显示控制面板（只在有面板隐藏时显示） */}
+          {/* 面板显示控制面板 */}
           {Object.values(panelVisibility).some(v => !v) && (
             <div className="panel-restore-controls">
               <button
@@ -868,6 +940,32 @@ const HeatmapVisualization = ({ annotations, filters, content }) => {
               </button>
             </div>
           )}
+
+          {/* 地图控制按钮（底部） */}
+          <div className="map-controls-bottom">
+            <div className="control-btn-group">
+              <button className="control-btn" onClick={handleZoomIn} title="放大">
+                <Plus size={18} />
+              </button>
+              <button className="control-btn" onClick={handleZoomOut} title="缩小">
+                <Minus size={18} />
+              </button>
+              <button className="control-btn" onClick={handleFitView} title="适应视野">
+                <Maximize2 size={18} />
+              </button>
+              <button className="control-btn" onClick={handleResetView} title="重置视图">
+                <RefreshCw size={18} />
+              </button>
+              <button
+                className="control-btn analyze-btn"
+                onClick={handleReanalyze}
+                title="重新分析"
+                disabled={isAnalyzing}
+              >
+                <Cpu size={18} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -199,6 +199,8 @@ export const translations = {
     'loading_entity_annotations': '加载实体标注中...',
 
     // 新增可视化相关翻译
+    'heatmap': '时空热力图',
+    'heatmap_description': 'AI分析的人物时空分布热力图',
     'back_to_editor': '返回编辑器',
     'back_to_project': '返回项目',
     'untitled_document': '未命名文档',

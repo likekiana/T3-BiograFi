@@ -1,7 +1,8 @@
 // src/components/visualization/LocationMap.jsx
 import '../../styles/components/Visualization/LocationMap.css';
 import BubbleStyleSelector from './BubbleStyleSelector';
-import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'; //添加React导入，用于data-feather图标
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { AMAP_CONFIG, MAP_STYLES, getStyleById } from '../../utils/mapConfig'; //共享配置
 // 导入 react-feather 图标
 import {
   Plus,
@@ -20,30 +21,8 @@ import {
   Activity // 新增：活动图标
 } from 'react-feather';
 
-// 高德地图API配置
-const AMAP_CONFIG = {
-  key: '0af744d9c966d1790972694dfa5509d6',
-  version: '2.0'
-};
-
-// 地图样式配置（与样式选择器保持一致）
-const MAP_STYLES = {
-  grey: { name: '商务灰', icon: null, style: 'amap://styles/grey' },
-  light: { name: '清新浅色', icon: null, style: 'amap://styles/light' },
-  normal: { name: '标准蓝', icon: null, style: 'amap://styles/normal' },
-  dark: { name: '深色夜晚', icon: null, style: 'amap://styles/dark' },
-  fresh: { name: '清新绿', icon: null, style: 'amap://styles/fresh' },
-  '8e18d6f3c8e4c24645505580481f8d25': { name: '无底图', icon: null, style: 'amap://styles/8e18d6f3c8e4c24645505580481f8d25' },
-  whitesmoke: { name: '素雅白', icon: null, style: 'amap://styles/whitesmoke' },
-  graffiti: { name: '涂鸦风', icon: null, style: 'amap://styles/4e349627b3a2e06d4b1b1e6e661c8c09' }
-};
-
-const getStyleById = (id) => {
-  return MAP_STYLES[id]?.style || MAP_STYLES.grey.style;
-};
-
 // 全局状态管理 - 优化为立即加载
-let isAMapLoaded = false; 
+let isAMapLoaded = false;
 let _locationsCache = null; //缓存数据
 
 // 获取缓存的函数
@@ -87,13 +66,13 @@ const preloadAMap = () => {
   }
 
   const script = document.createElement('script');
-  script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}`;
+  script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}&plugin=${AMAP_CONFIG.plugins}`;
   script.async = true;
   script.defer = true;
   script.crossOrigin = 'anonymous';
 
   script.onload = () => {
-    console.log('AMap preloaded');
+    console.log('AMap preloaded with buildings plugin');
     isAMapLoaded = true;
   };
 
@@ -108,7 +87,7 @@ const preloadAMap = () => {
   script.className = 'amap-preload-script';
   document.head.appendChild(script);
 
-  console.log('AMap preloading started');
+  console.log('AMap preloading started with buildings plugin');
 };
 
 // 立即预加载
@@ -220,7 +199,7 @@ class LocationMatcher {
   }
 }
 
-const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = true }) => {
+const LocationMap = ({ annotations, filters }) => {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -232,22 +211,21 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
   const [locationsWithCoords, setLocationsWithCoords] = useState([]);
   const [matchResults, setMatchResults] = useState({});
 
-  // 热力图相关状态
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const [heatmapData, setHeatmapData] = useState([]);
-  const [isGeneratingHeatmap, setIsGeneratingHeatmap] = useState(false);
-
   // 当前地图样式状态
   const [currentMapStyle, setCurrentMapStyle] = useState('grey');
 
+  // 建筑物图层相关状态
+  const [buildingsLayer, setBuildingsLayer] = useState(null);
+  const [showBuildings, setShowBuildings] = useState(true);
+
   const isMountedRef = useRef(true);
-  const markerRestoreTimerRef = useRef(null); // <-- 【新增】用于存储 setTimeout ID
+  const markerRestoreTimerRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // 清理时移除标记，但销毁逻辑已移至地图初始化 useEffect 的清理函数
+      // 清理时移除标记
       markersRef.current.forEach(marker => {
         if (marker && marker.setMap) {
           marker.setMap(null);
@@ -291,7 +269,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     return () => clearInterval(checkInterval);
   }, []);
 
-  // 优化：标准 React 地图初始化（只依赖 isAMapReady，避免因 currentMapStyle 变化而重建地图实例）
+  // 优化：标准 React 地图初始化
   useEffect(() => {
     if (!isAMapReady || !mapRef.current || mapInstance) {
       return;
@@ -306,7 +284,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
         console.error('AMap not found, retrying...');
         setIsAMapReady(false);
         const script = document.createElement('script');
-        script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}`;
+        script.src = `https://webapi.amap.com/maps?v=2.0&key=${AMAP_CONFIG.key}&plugin=${AMAP_CONFIG.plugins}`;
         script.async = true;
         script.defer = true;
         script.crossOrigin = 'anonymous';
@@ -321,18 +299,97 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
       const mapOptions = {
         zoom: 5,
         center: [116.397428, 39.90923],
-        viewMode: '2D',
+        viewMode: '3D', // 开启3D视图
         mapStyle: getStyleById(currentMapStyle),
         resizeEnable: true,
         animateEnable: false,
         doubleClickZoom: false,
         keyboardEnable: false,
         scrollWheel: true,
-        touchZoom: false
+        touchZoom: false,
+        // 3D地图专用配置
+        rotateEnable: true,
+        pitchEnable: true,
+        pitch: 30,      // 初始倾斜角度
+        rotation: 0,    // 初始旋转角度
+        zooms: [2, 20],
+        buildingAnimation: true,
+        skyColor: '#3671cc',
       };
 
       console.log('Creating AMap with options:', mapOptions);
       map = new window.AMap.Map(mapRef.current, mapOptions);
+
+      // 3D视图控制栏
+      const controlBar = new window.AMap.ControlBar({
+        position: {
+          right: '10px',
+          top: '80px' // 调整位置，避免与现有控制按钮冲突
+        },
+        showZoomBar: false,
+        showControlButton: true
+      });
+      controlBar.addTo(map);
+
+      const toolBar = new window.AMap.ToolBar({
+        position: {
+          right: '40px',
+          top: '150px'
+        },
+        liteStyle: true
+      });
+      toolBar.addTo(map);
+
+      // ============ 添加建筑物图层 ============
+      // 等待地图完全加载后再添加建筑物
+      map.on('complete', () => {
+        console.log('Map loaded, adding buildings layer...');
+
+        // 使用更简单的方式添加建筑物图层
+        const addBuildingsLayer = () => {
+          try {
+            // 简化的建筑物图层创建
+            const buildingsLayerInstance = new window.AMap.Buildings({
+              zooms: [3, 18],
+              opacity: 0.8,
+              heightFactor: 1
+              // 移除复杂的样式配置，让地图自己处理
+            });
+
+            buildingsLayerInstance.setMap(map);
+            console.log('Buildings layer added successfully');
+
+            if (isMountedRef.current) {
+              setBuildingsLayer(buildingsLayerInstance);
+            }
+          } catch (error) {
+            console.error('Failed to add buildings layer:', error);
+            // 如果失败，可以重试一次
+            setTimeout(() => {
+              if (isMountedRef.current && map) {
+                try {
+                  const retryBuildingsLayer = new window.AMap.Buildings({
+                    zooms: [3, 18],
+                    opacity: 0.8
+                  });
+                  retryBuildingsLayer.setMap(map);
+                  if (isMountedRef.current) {
+                    setBuildingsLayer(retryBuildingsLayer);
+                  }
+                  console.log('Buildings layer added on retry');
+                } catch (retryError) {
+                  console.error('Buildings layer retry failed:', retryError);
+                }
+              }
+            }, 500);
+          }
+        };
+
+        // 延迟添加建筑物图层
+        setTimeout(() => {
+          addBuildingsLayer();
+        }, 300);
+      });
 
       if (isMountedRef.current) {
         setMapInstance(map);
@@ -373,19 +430,54 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
 
     // 组件卸载时彻底销毁地图
     return () => {
-      console.log('Destroying map instance');
-      if (markerRestoreTimerRef.current) {
-        clearTimeout(markerRestoreTimerRef.current);
-        markerRestoreTimerRef.current = null;
-      }
-      if (map) {
-        map.destroy();
-      }
-      if (isMountedRef.current) {
-        setMapInstance(null);
-      }
+      // console.log('Destroying map instance');
+      // if (markerRestoreTimerRef.current) {
+      //   clearTimeout(markerRestoreTimerRef.current);
+      //   markerRestoreTimerRef.current = null;
+      // }
+      // if (map) {
+      //   map.destroy();
+      // }
+      // if (isMountedRef.current) {
+      //   setMapInstance(null);
+      //   setBuildingsLayer(null);
+      // }
     };
-  }, [isAMapReady]);
+  }, [isAMapReady, currentMapStyle]);
+
+  // 控制建筑物图层显示/隐藏
+  const toggleBuildings = useCallback(() => {
+    if (!buildingsLayer) return;
+
+    try {
+      if (showBuildings) {
+        buildingsLayer.hide();
+        console.log('Buildings layer hidden');
+      } else {
+        buildingsLayer.show();
+        console.log('Buildings layer shown');
+      }
+      setShowBuildings(!showBuildings);
+    } catch (error) {
+      console.error('Failed to toggle buildings layer:', error);
+      // 如果操作失败，重新创建建筑物图层
+      setTimeout(() => {
+        if (mapInstance && isMountedRef.current) {
+          try {
+            const newBuildingsLayer = new window.AMap.Buildings({
+              zooms: [3, 18],
+              opacity: 0.8
+            });
+            newBuildingsLayer.setMap(mapInstance);
+            setBuildingsLayer(newBuildingsLayer);
+            console.log('Buildings layer recreated after toggle failure');
+          } catch (recreateError) {
+            console.error('Failed to recreate buildings layer:', recreateError);
+          }
+        }
+      }, 500);
+    }
+  }, [buildingsLayer, showBuildings, mapInstance]);
 
   // 优化：快速处理地点数据
   const locations = useMemo(() => {
@@ -402,7 +494,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
         count++;
       }
       // 只处理前100个，避免性能问题
-      if (count >= 100) break;
+      // if (count >= 100) break;
     }
 
     const cache = getLocationsCache();
@@ -549,176 +641,10 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     fetchCoordinates();
   }, [locations, smartGeocodeLocations]);
 
-  // 生成热力图数据
-  const generateHeatmapData = useCallback(() => {
-    if (locationsWithCoords.length === 0) return [];
-
-    // 过滤并转换数据
-    const validData = locationsWithCoords
-      .filter(location =>
-        location.coordinates &&
-        Array.isArray(location.coordinates) &&
-        location.coordinates.length === 2 &&
-        Number.isFinite(location.coordinates[0]) &&
-        Number.isFinite(location.coordinates[1])
-      )
-      .map(location => ({
-        lng: location.coordinates[0],
-        lat: location.coordinates[1],
-        value: location.count, // 使用出现次数作为热力值
-        name: location.name,
-        count: location.count,
-        confidence: location.matchInfo?.confidence || 'low'
-      }));
-
-    return validData;
-  }, [locationsWithCoords]);
-
-  //热力图切换
-  const toggleHeatmap = useCallback(() => {
-    if (showHeatmap) {
-      // 关闭热力图，显示标记
-      setShowHeatmap(false);
-      if (window.heatmapInstance) {
-        window.heatmapInstance.setMap(null);
-        window.heatmapInstance = null;
-      }
-      // 重新显示标记
-      if (mapInstance && markersRef.current.length > 0) {
-        markersRef.current.forEach(marker => {
-          if (marker && marker.setMap) {
-            marker.setMap(mapInstance);
-          }
-        });
-      }
-    } else {
-      // 打开热力图
-      console.log('Opening heatmap...');
-      const data = generateHeatmapData();
-      if (data.length === 0) {
-        alert('没有足够的地图数据生成热力图');
-        return;
-      }
-
-      console.log('Generated heatmap data:', data);
-      setHeatmapData(data);
-      setShowHeatmap(true);
-      setIsGeneratingHeatmap(true);
-
-      // 如果提供了父组件的回调函数，调用它
-      if (onOpenHeatmap) {
-        onOpenHeatmap(data);
-      }
-    }
-  }, [showHeatmap, generateHeatmapData, onOpenHeatmap, mapInstance]);
-
-  // 创建热力图
-  useEffect(() => {
-    // 只有显示热力图时才执行
-    if (!showHeatmap) return;
-
-    // 检查必要的条件
-    if (!mapInstance || !heatmapData || heatmapData.length === 0) {
-      return;
-    }
-
-    const createHeatmap = async () => {
-      try {
-        // 1. 确保插件已加载 (使用官方推荐的 AMap.plugin 方式)
-        if (!window.AMap.HeatMap) {
-          console.log('Heatmap plugin not loaded, loading...');
-          await new Promise((resolve) => {
-            window.AMap.plugin(['AMap.HeatMap'], () => {
-              resolve();
-            });
-          });
-        }
-
-        // 清除现有的热力图
-        if (window.heatmapInstance) {
-          window.heatmapInstance.setMap(null);
-          window.heatmapInstance = null;
-        }
-
-        // 隐藏标记
-        markersRef.current.forEach(marker => {
-          if (marker && marker.setMap) {
-            marker.setMap(null);
-          }
-        });
-
-        // 创建热力图实例
-        const heatmap = new window.AMap.HeatMap(mapInstance, {
-          radius: 25,
-          opacity: [0, 0.8],
-          gradient: {
-            0.1: 'rgb(0, 255, 0)',
-            0.3: 'rgb(255, 255, 0)',
-            0.5: 'rgb(255, 165, 0)',
-            0.8: 'rgb(255, 69, 0)',
-            1.0: 'rgb(139, 0, 0)'
-          },
-          zIndex: 100,
-          zooms: [3, 18]
-        });
-
-        // 准备数据
-        const points = heatmapData.map(point => ({
-          lng: point.lng,
-          lat: point.lat,
-          count: point.value
-        }));
-
-        const maxValue = Math.max(...heatmapData.map(p => p.value));
-
-        // 设置数据
-        heatmap.setDataSet({
-          data: points,
-          max: maxValue * 1.2
-        });
-
-        // 保存实例
-        window.heatmapInstance = heatmap;
-        setIsGeneratingHeatmap(false);
-
-        // 调整视野 - 增加由 NaN 引起崩溃的防护
-        setTimeout(() => {
-          if (mapInstance && points.length > 0) {
-            const bounds = new window.AMap.Bounds();
-            let validPointsCount = 0;
-
-            points.forEach(point => {
-              // 再次检查，防止 NaN 导致 crash
-              if (Number.isFinite(point.lng) && Number.isFinite(point.lat)) {
-                bounds.extend(new window.AMap.LngLat(point.lng, point.lat));
-                validPointsCount++;
-              }
-            });
-
-            if (validPointsCount > 0) {
-              mapInstance.setBounds(bounds, false, [50, 50, 50, 50]);
-            }
-          }
-        }, 500);
-
-        console.log('Heatmap created successfully');
-
-      } catch (error) {
-        console.error('创建热力图失败:', error);
-        setIsGeneratingHeatmap(false);
-        // ... (保持原本的错误处理逻辑)
-        setShowHeatmap(false);
-      }
-    };
-
-    createHeatmap();
-
-  }, [showHeatmap, mapInstance, heatmapData]);
 
   // 优化：延迟添加标记到地图
   useEffect(() => {
-    if (showHeatmap) return;
-    if (!mapInstance || locationsWithCoords.length === 0 || showHeatmap) return;
+    if (!mapInstance || locationsWithCoords.length === 0) return;
 
     // 延迟添加标记，避免阻塞UI
     const timer = setTimeout(() => {
@@ -805,9 +731,9 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [mapInstance, locationsWithCoords, showHeatmap]);
+  }, [mapInstance, locationsWithCoords]);
 
-  // 创建标记内容（不变）
+  // 创建标记内容 调用高德地图api
   const createMarkerContent = useCallback((location) => {
     const size = getMarkerSize(location.count);
     const color = getMarkerColor(location.count);
@@ -908,7 +834,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
     }
   }, [mapInstance]);
 
-  // 切换地图样式：只切换样式，不再重建地图实例
+  // 修改样式切换函数，简化处理，不重新创建建筑物图层
   const handleChangeMapStyle = useCallback((styleUrl) => {
     if (!mapInstance) return;
     try {
@@ -916,15 +842,21 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
         clearTimeout(markerRestoreTimerRef.current);
         markerRestoreTimerRef.current = null;
       }
+
       // 暂时移除标记
       markersRef.current.forEach(marker => {
         if (marker) marker.setMap(null);
       });
+
       // 切换样式
       mapInstance.setMapStyle(styleUrl);
-      // 只更新 currentMapStyle 状态（不再触发地图重建）
+
+      // 只更新 currentMapStyle 状态
       const styleEntry = Object.entries(MAP_STYLES).find(([_, value]) => value.style === styleUrl);
-      if (styleEntry) setCurrentMapStyle(styleEntry[0]);
+      if (styleEntry) {
+        setCurrentMapStyle(styleEntry[0]);
+      }
+
       // 延迟恢复标记
       const timerId = setTimeout(() => {
         if (!isMountedRef.current || !mapInstance) {
@@ -939,7 +871,8 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
           mapInstance.setFitView(validMarkers, false, [50, 50, 50, 50]);
         }
         markerRestoreTimerRef.current = null;
-      }, 50);
+      }, 500); // 增加到500ms，给地图更多时间加载
+
       markerRestoreTimerRef.current = timerId;
     } catch (error) {
       console.error('切换地图样式失败:', error);
@@ -949,7 +882,7 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
           if (marker) marker.setMap(mapInstance);
         });
         markerRestoreTimerRef.current = null;
-      }, 50);
+      }, 100);
       markerRestoreTimerRef.current = errorTimerId;
     }
   }, [mapInstance]);
@@ -987,7 +920,6 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
   return (
     <div className="location-map">
       <div className="location-map-title">
-
         {/* 地点事件分布图 */}
         <span style={{
           fontWeight: 700,
@@ -1041,37 +973,32 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
             </div>
           )}
 
-          <div className="map-controls">
-            <button className="control-btn" onClick={handleZoomIn} title="放大">
-              <Plus size={18} />
-            </button>
-            <button className="control-btn" onClick={handleZoomOut} title="缩小">
-              <Minus size={18} />
-            </button>
-            <button className="control-btn" onClick={handleFitView} title="适应视野">
-              <Maximize2 size={18} />
-            </button>
-            <button className="control-btn" onClick={handleResetView} title="重置视图">
-              <RefreshCw size={18} />
-            </button>
-
-            {/* 热力图切换按钮 */}
-            {showHeatmapButton && locationsWithCoords.length > 0 && (
-              <button
-                className={`control-btn ${showHeatmap ? 'active' : ''}`}
-                onClick={toggleHeatmap}
-                title={showHeatmap ? "关闭热力图" : "打开热力图"}
-                disabled={isGeneratingHeatmap}
-              >
-                {isGeneratingHeatmap ? (
-                  <div className="loading-spinner-small"></div>
-                ) : showHeatmap ? (
-                  <MapPin size={18} /> // 切换到标记视图图标
-                ) : (
-                  <Thermometer size={18} /> // 热力图图标
-                )}
+          <div className="map-controls-bottom">
+            <div className="control-btn-group">
+              <button className="control-btn" onClick={handleZoomIn} title="放大">
+                <Plus size={18} />
               </button>
-            )}
+              <button className="control-btn" onClick={handleZoomOut} title="缩小">
+                <Minus size={18} />
+              </button>
+              <button className="control-btn" onClick={handleFitView} title="适应视野">
+                <Maximize2 size={18} />
+              </button>
+              <button className="control-btn" onClick={handleResetView} title="重置视图">
+                <RefreshCw size={18} />
+              </button>
+
+              {/* 建筑物图层切换按钮 */}
+              {buildingsLayer && (
+                <button
+                  className={`control-btn ${showBuildings ? 'active' : ''}`}
+                  onClick={toggleBuildings}
+                  title={showBuildings ? "隐藏建筑物" : "显示建筑物"}
+                >
+                  <Layers size={18} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 气泡式样式选择器 */}
@@ -1150,17 +1077,11 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
                   AI智能地名匹配
                 </p>
 
-                {/* 热力图状态 */}
-                {showHeatmap && (
-                  <div className="heatmap-status">
-                    <Thermometer size={14} />
-                    <span>热力图模式已启用</span>
-                    <button
-                      onClick={toggleHeatmap}
-                      className="heatmap-toggle-btn"
-                    >
-                      切换回标记视图
-                    </button>
+                {/* 建筑物图层状态 */}
+                {buildingsLayer && (
+                  <div className="buildings-status">
+                    <Layers size={14} />
+                    <span>3D建筑物: {showBuildings ? '已显示' : '已隐藏'}</span>
                   </div>
                 )}
 
@@ -1173,13 +1094,6 @@ const LocationMap = ({ annotations, filters, onOpenHeatmap, showHeatmapButton = 
             </div>
           )}
 
-          {/* 热力图加载指示器 */}
-          {isGeneratingHeatmap && (
-            <div className="heatmap-loading-overlay">
-              <div className="loading-spinner"></div>
-              <p>正在生成热力图...</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
