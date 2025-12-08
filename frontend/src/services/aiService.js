@@ -59,10 +59,15 @@ export const aiService = {
   getAvailableModels() {
     return [
       {
+        id: 'xunzi-qwen2',
+        name: '荀子古汉语大模型',
+        description: '云端部署的荀子大模型，专为古汉语设计，古文理解更准确',
+        recommended: true
+      },
+      {
         id: 'deepseek-chat',
         name: 'DeepSeek-V3',
-        description: '最新V3模型，速度快，效果好',
-        recommended: true
+        description: '最新V3模型，速度快，效果好'
       },
       {
         id: 'deepseek-reasoner',

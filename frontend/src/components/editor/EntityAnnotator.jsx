@@ -52,7 +52,7 @@ const EntityAnnotator = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState(null);
   const [entityLabels, setEntityLabels] = useState(loadCustomLabels());
-  const [selectedModel, setSelectedModel] = useState('deepseek-chat'); // 默认使用DeepSeek模型
+  const [selectedModel, setSelectedModel] = useState('xunzi-qwen2'); // 默认使用荀子古汉语大模型
   const [availableModels, setAvailableModels] = useState([]);
   
   // 加载可用模型列表

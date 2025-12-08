@@ -15,12 +15,20 @@ CORS(app)
 
 # 导入配置
 try:
-    from config import DEEPSEEK_API_KEY, DEEPSEEK_API_URL, DEEPSEEK_MODEL, TEMPERATURE, MAX_TOKENS, TOP_P, TIMEOUT
+    from config import (DEEPSEEK_API_KEY, DEEPSEEK_API_URL, DEEPSEEK_MODEL, 
+                        MODELSCOPE_API_KEY, MODELSCOPE_API_URL, XUNZI_MODEL,
+                        XUNZI_CLOUD_API_URL, XUNZI_CLOUD_MODEL,
+                        TEMPERATURE, MAX_TOKENS, TOP_P, TIMEOUT)
 except ImportError:
     # 如果没有 config.py，尝试从环境变量读取
     DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
     DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
     DEEPSEEK_MODEL = 'deepseek-chat'
+    MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY', '')
+    MODELSCOPE_API_URL = 'https://api-inference.modelscope.cn/v1/chat/completions'
+    XUNZI_MODEL = 'Qwen/Qwen2.5-7B-Instruct'
+    XUNZI_CLOUD_API_URL = 'https://ms-ens-685b28f8-bf6f.modelscope.cn/v1/chat/completions'
+    XUNZI_CLOUD_MODEL = 'Xunzillm4cc/Xunzi-Qwen2-1.5B'
     TEMPERATURE = 0.75
     MAX_TOKENS = 2000
     TOP_P = 0.9
@@ -28,43 +36,87 @@ except ImportError:
 else:
     # 若存在配置文件，允许环境变量覆盖其中的 API Key
     DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
+    MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY', MODELSCOPE_API_KEY)
 
 def generate_response(prompt, model=None):
     """
-    调用 DeepSeek API 生成响应
+    调用 AI API 生成响应，支持 DeepSeek 和 荀子古汉语模型
     """
-    if not DEEPSEEK_API_KEY:
-        raise ValueError('未设置 DEEPSEEK_API_KEY 环境变量。请设置后重启服务。')
+    model = model or DEEPSEEK_MODEL
+    
+    # 根据模型选择对应的 API
+    if model == 'xunzi-qwen2':
+        api_url = MODELSCOPE_API_URL
+        api_key = MODELSCOPE_API_KEY
+        actual_model = XUNZI_MODEL
+        api_name = '魔搭/荀子'
+    elif model == 'xunzi-cloud':
+        api_url = XUNZI_CLOUD_API_URL
+        api_key = MODELSCOPE_API_KEY
+        actual_model = XUNZI_CLOUD_MODEL
+        api_name = '荀子云端'
+    else:
+        api_url = DEEPSEEK_API_URL
+        api_key = DEEPSEEK_API_KEY
+        actual_model = model
+        api_name = 'DeepSeek'
+    
+    if not api_key:
+        raise ValueError('未设置 {} API Key。请设置后重启服务。'.format(api_name))
     
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer {}'.format(DEEPSEEK_API_KEY)
+        'Authorization': 'Bearer {}'.format(api_key)
     }
     
+    # 构建消息列表
+    messages = []
+    
+    # 为荀子模型（Qwen替代）添加古汉语专家系统提示
+    if model == 'xunzi-qwen2':
+        messages.append({
+            'role': 'system',
+            'content': '''你是一位精通古汉语的资深学者，专门研究先秦两汉至明清的古典文献。你具备以下专业能力：
+1. 深厚的古汉语功底，熟悉文言文语法、词汇演变和修辞手法
+2. 广博的古典文献知识，包括经史子集各类典籍
+3. 对古代历史、文化、思想有深入理解
+4. 能够准确解读古文含义，分析其思想内涵和历史背景
+
+请用专业、严谨的态度回答问题，引用原文时注明出处，解释时兼顾字面意思和深层含义。'''
+        })
+    
+    messages.append({
+        'role': 'user',
+        'content': prompt
+    })
+    
+    # 构建请求体
     payload = {
-        'model': model or DEEPSEEK_MODEL,
-        'messages': [
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ],
-        'temperature': TEMPERATURE,
-        'max_tokens': MAX_TOKENS,
-        'top_p': TOP_P
+        'model': actual_model,
+        'messages': messages
     }
+    
+    # 魔搭平台的荀子模型可能不支持某些参数，使用更保守的配置
+    if model == 'xunzi-qwen2':
+        # 荀子模型使用简化参数
+        payload['max_tokens'] = min(MAX_TOKENS, 1024)
+    else:
+        # DeepSeek 使用完整参数
+        payload['temperature'] = TEMPERATURE
+        payload['max_tokens'] = MAX_TOKENS
+        payload['top_p'] = TOP_P
     
     try:
         response = requests.post(
-            DEEPSEEK_API_URL,
+            api_url,
             headers=headers,
             json=payload,
             timeout=TIMEOUT
         )
+        
         if not response.ok:
-            # 获取详细的错误信息
             error_info = response.text
-            raise Exception('调用 DeepSeek API 失败: HTTP {} - {}'.format(response.status_code, error_info))
+            raise Exception('调用 {} API 失败: HTTP {} - {}'.format(api_name, response.status_code, error_info))
         
         result = response.json()
         if 'choices' in result and len(result['choices']) > 0:
@@ -73,7 +125,7 @@ def generate_response(prompt, model=None):
             raise ValueError('API 返回格式异常: {}'.format(json.dumps(result)))
             
     except requests.exceptions.RequestException as e:
-        raise Exception('调用 DeepSeek API 失败: {}'.format(str(e)))
+        raise Exception('调用 {} API 失败: {}'.format(api_name, str(e)))
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
