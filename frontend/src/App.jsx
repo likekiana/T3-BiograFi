@@ -9,6 +9,7 @@ import Editor from './pages/Editor.jsx';
 import Profile from './pages/Profile.jsx';
 import Settings from './pages/Settings.jsx';
 import DataVisualization from './components/visualization/DataVisualization.jsx';
+import ProjectVisualization from './components/visualization/ProjectVisualization.jsx';
 import { ToastContainer } from './components/common/Toast.jsx';
 import './App.css';
 
@@ -137,6 +138,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DataVisualization />
+                </ProtectedRoute>
+              } 
+            />
+            {/* 添加项目级可视化路由 */}
+            <Route 
+              path="/project-visualization" 
+              element={
+                <ProtectedRoute>
+                  <ProjectVisualization />
                 </ProtectedRoute>
               } 
             />

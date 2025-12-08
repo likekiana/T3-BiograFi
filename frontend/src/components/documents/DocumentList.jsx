@@ -1,5 +1,6 @@
 // src/components/documents/DocumentList.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DocumentCard from './DocumentCard';
 import DocumentForm from './DocumentForm';
 import { useDocuments } from '../../hooks/useDocuments';
@@ -8,6 +9,8 @@ import Modal from '../common/Modal';
 import '../../styles/components/DocumentList.css';
 
 const DocumentList = ({ project, onOpenDocument, onBack }) => {
+  const navigate = useNavigate();
+  
   const { 
     documents, 
     loading, 
@@ -24,6 +27,16 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
   const [exportMode, setExportMode] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState(new Set());
   const [filteredDocuments, setFilteredDocuments] = useState([]);
+  
+  // 项目可视化功能
+  const handleProjectVisualization = () => {
+    navigate('/project-visualization', {
+      state: {
+        projectId: project.id,
+        projectName: project.name
+      }
+    });
+  };
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -158,20 +171,30 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
               </button>
             </>
           ) : (
-            <button 
-              className="action-btn"
-              onClick={() => setExportMode(true)}
-            >
-              <i data-feather="download"></i> {t('export_documents')}
-            </button>
-          )}
+            <>
+              <button 
+                className="action-btn"
+                onClick={() => setExportMode(true)}
+              >
+                <i data-feather="download"></i> {t('export_documents')}
+              </button>
 
-          <button 
-            className="action-btn"
-            onClick={onBack}
-          >
-            <i data-feather="arrow-left"></i> {t('back_to_project_list')}
-          </button>
+              {/* 项目可视化按钮 */}
+              <button 
+                className="action-btn primary-btn"
+                onClick={handleProjectVisualization}
+              >
+                <i data-feather="bar-chart-2"></i> {t('project_visualization')}
+              </button>
+
+              <button 
+                className="action-btn"
+                onClick={onBack}
+              >
+                <i data-feather="arrow-left"></i> {t('back_to_project_list')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

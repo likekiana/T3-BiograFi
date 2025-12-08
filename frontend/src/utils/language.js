@@ -196,16 +196,26 @@ export const translations = {
     'recommended': '(推荐)',
     'language': '简体中文',
     'loading': '加载中...',
+    'loading_entity_annotations': '加载实体标注中...',
 
     // 新增可视化相关翻译
     'back_to_editor': '返回编辑器',
+    'back_to_project': '返回项目',
     'untitled_document': '未命名文档',
     'entity_count': '共 {count} 个实体标注',
     'character_count': '{count} 字',
     'entity_filter': '实体筛选',
     'visualization_type': '可视化类型',
     'data_overview': '数据概览',
+    'project_overview': '项目概览',
     'total': '总计',
+    'total_entities': '实体总数',
+    'total_documents': '文档总数',
+    'documents': '文档',
+    'persons': '人物',
+    'places': '地点',
+    'times': '时间',
+    'project_visualization': '项目可视化',
     
     // 可视化标签页
     'timeline': '时间事件轴',
