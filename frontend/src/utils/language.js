@@ -17,7 +17,7 @@ export const translations = {
     'project_management': '项目管理',
     'search_project': '搜索项目...',
     'new_project': '新建项目',
-    'welcome_title': '欢迎使用 iAnctChinese-Client！',
+    'welcome_title': '欢迎使用 BiograFi-Client！',
     'welcome_desc': '您还没有创建任何项目，点击右上角的"新建项目"按钮开始创建您的第一个项目吧！',
     'create_first_project': '创建第一个项目',
     'open_project': '打开项目',
@@ -153,7 +153,7 @@ export const translations = {
     'input_classical_text_first': '请先输入古文内容',
     
     // Login page
-    'login_title': 'iAnctChinese',
+    'login_title': 'BiograFi',
     'login_subtitle': '古汉语智能标注平台',
     'login': '登录',
     'logging_in': '登录中...',
@@ -227,7 +227,7 @@ export const translations = {
     'project_management': '項目管理',
     'search_project': '搜索項目...',
     'new_project': '新建項目',
-    'welcome_title': '歡迎使用 iAnctChinese-Client！',
+    'welcome_title': '歡迎使用 BiograFi-Client！',
     'welcome_desc': '您還沒有創建任何項目，點擊右上角的"新建項目"按鈕開始創建您的第一個項目吧！',
     'create_first_project': '創建第一個項目',
     'open_project': '打開項目',
@@ -363,7 +363,7 @@ export const translations = {
     'input_classical_text_first': '請先輸入古文內容',
     
     // Login page
-    'login_title': 'iAnctChinese',
+    'login_title': 'BiograFi',
     'login_subtitle': '古漢語智能標注平台',
     'login': '登錄',
     'logging_in': '登錄中...',
@@ -434,7 +434,7 @@ export const translations = {
     'project_management': 'Project Management',
     'search_project': 'Search projects...',
     'new_project': 'New Project',
-    'welcome_title': 'Welcome to iAnctChinese-Client!',
+    'welcome_title': 'Welcome to BiograFi-Client!',
     'welcome_desc': 'You haven\'t created any projects yet. Click the "New Project" button in the upper right corner to create your first project!',
     'create_first_project': 'Create First Project',
     'open_project': 'Open Project',
@@ -570,7 +570,7 @@ export const translations = {
     'input_classical_text_first': 'Please enter classical text first',
     
     // Login page
-    'login_title': 'iAnctChinese',
+    'login_title': 'BiograFi',
     'login_subtitle': 'Classical Chinese Annotation Platform',
     'login': 'Login',
     'logging_in': 'Logging in...',
