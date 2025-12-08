@@ -26,10 +26,34 @@ const request = async (url, options = {}) => {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
     
+    // 首先检查响应状态
     if (!response.ok) {
-      throw new Error(data.error || data.message || `HTTP ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    
+    // 尝试解析JSON，如果失败则返回文本
+    const responseText = await response.text();
+    let data;
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.warn('响应不是有效的JSON，尝试提取JSON部分:', parseError);
+      // 对于自动标注，可能返回的是纯文本或其他格式
+      // 尝试提取JSON部分（如果响应包含JSON以外的内容）
+      const jsonMatch = responseText.match(/\{.*\}|\[.*\]/s);
+      if (jsonMatch) {
+        try {
+          data = JSON.parse(jsonMatch[0]);
+        } catch (innerError) {
+          // 如果还是失败，抛出有意义的错误
+          throw new Error(`AI返回的格式无法解析: ${innerError.message}. 响应前100字符: ${responseText.substring(0, 100)}...`);
+        }
+      } else {
+        throw new Error(`AI返回的格式不是JSON. 响应前100字符: ${responseText.substring(0, 100)}...`);
+      }
     }
     
     return data;
@@ -45,7 +69,6 @@ const request = async (url, options = {}) => {
  * @param {Object} options - 请求选项
  * @returns {Promise} 响应数据
  */
-// src/services/api.js - 完全重写 authenticatedRequest
 const authenticatedRequest = async (url, options = {}) => {
   // 从本地存储获取用户信息
   let userId = null;
@@ -157,7 +180,6 @@ export const projectAPI = {
 // 文档服务 API
 export const documentAPI = {
   async getDocuments(projectId = null) {
-    // 不需要手动添加 userId，authenticatedRequest 会自动处理
     let url = `${USER_API_BASE}/api/documents`;
     if (projectId) {
       url += `?projectId=${projectId}`;
@@ -166,7 +188,6 @@ export const documentAPI = {
   },
 
   async createDocument(documentData) {
-    // 不需要手动检查 userId，authenticatedRequest 会自动添加
     return authenticatedRequest(`${USER_API_BASE}/api/documents`, {
       method: 'POST',
       body: documentData,
@@ -210,10 +231,10 @@ export const aiAPI = {
     });
   },
 
-  async autoAnnotate(text) {
+  async autoAnnotate(text, model = 'xunzi-qwen2') {
     return request(`${AI_API_BASE}/api/auto-annotate`, {
       method: 'POST',
-      body: { text },
+      body: { text, model },
     });
   },
 };
