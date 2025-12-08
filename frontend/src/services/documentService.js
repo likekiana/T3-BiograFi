@@ -61,7 +61,7 @@ export const documentService = {
       const userId = JSON.parse(localStorage.getItem('currentUser') || '{}').id;
       const others = existing.filter(x => x.userId !== userId);
       localStorage.setItem('appdata_documents_v1', JSON.stringify([...others, ...normalized]));
-      return docs;
+      return normalized;
     } catch (error) {
       console.error('获取文档列表失败，使用本地存储:', error);
       return this.getDocumentsFromLocal(projectId);
