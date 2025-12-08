@@ -1056,31 +1056,6 @@ return (
               className="author-input-compact"
             />
           </div>
-          <button
-            className="save-btn-compact"
-            onClick={handleManualSave}
-            disabled={saveStatus === 'saving'}
-            title={saveStatus === 'saving' ? '保存中...' : '保存文档'}
-          >
-            <i data-feather="save" data-rendered="false"></i>
-            {saveStatus === 'saving' ? '保存中' : t('save')}
-          </button>
-          
-          {/* 返回项目管理按钮 */}
-          <button
-            className="action-btn-compact"
-            onClick={() => {
-              if (onBack) {
-                onBack();
-              } else {
-                navigate('/projects');
-              }
-            }}
-            title="返回项目管理界面"
-          >
-            <i data-feather="arrow-left" data-rendered="false"></i>
-            返回项目
-          </button>
           
           {/* 删除文档按钮 */}
           <button
