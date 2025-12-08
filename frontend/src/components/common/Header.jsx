@@ -42,14 +42,6 @@ const Header = ({ showEditorButtons = false, onSaveDocument, onBackToProject, on
             <button 
               type="button" 
               className="header-button" 
-              onClick={onSaveDocument}
-            >
-              <i data-feather="save"></i>
-              <span>{t('save_document')}</span>
-            </button>
-            <button 
-              type="button" 
-              className="header-button" 
               onClick={onBackToProject}
             >
               <i data-feather="arrow-left"></i>
