@@ -5,13 +5,57 @@
   flex-direction: column;
 }
 
-.timeline-visualization h3 {
-  margin: 0 0 20px 0;
-  color: #333;
-  font-size: 1.3em;
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 2px solid #e9ecef;
   flex-shrink: 0;
+}
+
+.timeline-visualization h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3em;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+.export-btn i {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.export-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .timeline-container {

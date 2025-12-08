@@ -1,17 +1,80 @@
 // src/components/visualization/TimelineVisualization.jsx
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import '../../styles/components/Visualization/TimelineVisualization.css';
 import { aiService } from '../../services/aiService';
+import html2canvas from 'html2canvas';
 
 const TimelineVisualization = ({ annotations, filters, content }) => {
   const [summaries, setSummaries] = useState({});
   const [loading, setLoading] = useState(false);
+  const timelineRef = useRef(null);
   
   // 解析时间字符串，用于排序
   const parseTime = (timeStr) => {
     // 简单的时间解析，根据实际数据格式可能需要更复杂的逻辑
     const numMatch = timeStr.match(/\d+/);
     return numMatch ? parseInt(numMatch[0]) : 0;
+  };
+  
+  // 导出为PNG
+  const exportAsPNG = async () => {
+    if (!timelineRef.current) return;
+    
+    try {
+      const canvas = await html2canvas(timelineRef.current);
+      const dataURL = canvas.toDataURL('image/png');
+      downloadFile(dataURL, 'timeline-visualization.png', 'image/png');
+    } catch (error) {
+      console.error('导出PNG失败:', error);
+      alert('导出PNG失败，请重试');
+    }
+  };
+  
+  // 导出为JSON
+  const exportAsJSON = () => {
+    const exportData = {
+      timelineEvents,
+      summaries,
+      annotations: annotations.filter(ann => ann.label === '时间' && filters.times),
+      content: content.substring(0, 200) + '...' // 只导出部分内容作为参考
+    };
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    downloadFile(URL.createObjectURL(dataBlob), 'timeline-visualization.json', 'application/json');
+  };
+  
+  // 导出为CSV
+  const exportAsCSV = () => {
+    const headers = ['时间', '事件描述', 'AI概括'];
+    const rows = timelineEvents.map(event => [
+      event.time,
+      event.context.replace(/<[^>]+>/g, ''), // 移除HTML标签
+      summaries[event.id] || ''
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const dataBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    downloadFile(URL.createObjectURL(dataBlob), 'timeline-visualization.csv', 'text/csv');
+  };
+  
+  // 通用下载函数
+  const downloadFile = (url, filename, mimeType) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.type = mimeType;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 如果是Blob URL，释放资源
+    if (url.startsWith('blob:')) {
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
   };
 
   // 生成时间事件
@@ -92,14 +155,30 @@ const TimelineVisualization = ({ annotations, filters, content }) => {
 
   return (
     <div className="timeline-visualization">
-      <h3>时间事件轴</h3>
+      <div className="timeline-header">
+        <h3>时间事件轴</h3>
+        <div className="export-buttons">
+          <button className="export-btn" onClick={exportAsPNG} title="导出为PNG">
+            <i data-feather="download" data-rendered="false"></i>
+            导出PNG
+          </button>
+          <button className="export-btn" onClick={exportAsJSON} title="导出为JSON">
+            <i data-feather="download" data-rendered="false"></i>
+            导出JSON
+          </button>
+          <button className="export-btn" onClick={exportAsCSV} title="导出为CSV">
+            <i data-feather="download" data-rendered="false"></i>
+            导出CSV
+          </button>
+        </div>
+      </div>
       {loading && timelineEvents.length > 0 && (
         <div className="loading-summaries">
           <i data-feather="refresh-cw" className="spinning"></i>
           <span>正在生成事件概括...</span>
         </div>
       )}
-      <div className="timeline-container">
+      <div className="timeline-container" ref={timelineRef}>
         {timelineEvents.length === 0 ? (
           <div className="empty-timeline">
             <i data-feather="clock"></i>
