@@ -1,0 +1,388 @@
+/* 全新的中国历史时间轴样式，简洁高效 */
+.chinese-history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+/* 标题区域 */
+.timeline-header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.timeline-header h3 {
+  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.timeline-info {
+  color: #666;
+  font-size: 13px;
+  margin: 5px 0 0 0;
+}
+
+/* 画布容器 */
+.timeline-canvas-wrapper {
+  flex: 1;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: auto;
+  position: relative;
+  min-height: 400px;
+  max-height: 600px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 画布样式 */
+.timeline-canvas {
+  display: block;
+  width: 100%;
+  min-height: 400px;
+  cursor: grab;
+  transition: all 0.3s ease;
+}
+
+.timeline-canvas:active {
+  cursor: grabbing;
+}
+
+/* 控制按钮区域 */
+.timeline-controls-simple {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+}
+
+.timeline-btn {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.timeline-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.timeline-btn:active {
+  transform: translateY(0);
+}
+
+.timeline-hint {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* 图例区域 */
+.timeline-legend-simple {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 5px;
+}
+
+.timeline-legend-simple h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.legend-item-simple {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.legend-color-simple {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.legend-text-simple {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .chinese-history-timeline {
+    padding: 15px;
+  }
+  
+  .timeline-canvas {
+    height: 300px;
+  }
+  
+  .timeline-canvas-wrapper {
+    min-height: 300px;
+  }
+  
+  .legend-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .timeline-controls-simple {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .timeline-btn {
+    width: 100%;
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .timeline-header h3 {
+    font-size: 18px;
+  }
+  
+  .legend-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .timeline-canvas {
+    height: 250px;
+  }
+  
+  .timeline-canvas-wrapper {
+    min-height: 250px;
+  }
+}
+
+/* 确保不与父容器冲突 */
+.chinese-history-timeline * {
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+/* 移除所有可能导致冲突的复杂效果 */
+.chinese-history-timeline::before,
+.chinese-history-timeline::after {
+  display: none;
+}
+
+/* 确保时间轴不会被其他元素覆盖 */
+.chinese-history-timeline {
+  overflow: visible;
+}
+
+/* 确保画布容器不会限制内部内容 */
+.timeline-canvas-wrapper {
+  overflow: visible;
+}
+
+/* 简化的滚动条样式 */
+.timeline-canvas-wrapper::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.timeline-canvas-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.timeline-canvas-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.timeline-canvas-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 加载动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chinese-history-timeline * {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* 朝代提示框样式 */
+.timeline-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(0, -100%);
+  animation: fadeInTooltip 0.2s ease-out;
+}
+
+@keyframes fadeInTooltip {
+  from {
+    opacity: 0;
+    transform: translate(0, -80%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -100%);
+  }
+}
+
+.tooltip-content {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.tooltip-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #007bff;
+}
+
+.tooltip-year {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #ffffff;
+}
+
+.tooltip-duration {
+  font-size: 12px;
+  color: #adb5bd;
+  font-style: italic;
+}
+
+/* 确保提示框不会溢出容器 */
+.timeline-canvas-wrapper {
+  position: relative;
+  overflow: visible;
+}
+
+/* 确保在深色主题下也能正常显示 */
+[data-theme="dark"] .chinese-history-timeline {
+  background: #343a40;
+  color: white;
+}
+
+[data-theme="dark"] .timeline-header h3 {
+  color: white;
+}
+
+[data-theme="dark"] .timeline-info {
+  color: #adb5bd;
+}
+
+[data-theme="dark"] .timeline-canvas-wrapper {
+  background: #343a40;
+  border-color: #495057;
+}
+
+[data-theme="dark"] .timeline-btn {
+  background: #0d6efd;
+}
+
+[data-theme="dark"] .timeline-btn:hover {
+  background: #0b5ed7;
+}
+
+[data-theme="dark"] .timeline-legend-simple {
+  background: #495057;
+  border-color: #6c757d;
+}
+
+[data-theme="dark"] .timeline-legend-simple h4 {
+  color: white;
+}
+
+[data-theme="dark"] .legend-item-simple {
+  color: #adb5bd;
+}
+
+[data-theme="dark"] .timeline-hint {
+  color: #adb5bd;
+}
+
+/* 事件提示框特殊样式 */
+.event-tooltip {
+  animation: fadeInTooltip 0.2s ease-out;
+}
+
+.tooltip-event-text {
+  font-size: 13px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.tooltip-event-year {
+  font-size: 12px;
+  color: #adb5bd;
+  font-style: italic;
+}
+
+/* 深色主题下的提示框样式 */
+[data-theme="dark"] .tooltip-content {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .tooltip-title {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .tooltip-year {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .tooltip-duration {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .tooltip-event-text {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .tooltip-event-year {
+  color: #94a3b8;
+}

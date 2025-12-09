@@ -202,6 +202,17 @@
   border: 1px solid #e9ecef;
   min-height: 0;
   position: relative;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 确保时间轴组件能正确显示 */
+.visualization-display > * {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
 }
 
 .loading {

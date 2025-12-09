@@ -6,6 +6,7 @@ import TimelineVisualization from './TimelineVisualization';
 import LocationMap from './LocationMap';
 import RelationshipGraph from './RelationshipGraph';
 import HeatmapVisualization from './HeatmapVisualization';
+import ChineseHistoryTimeline from './ChineseHistoryTimeline';
 import { Thermometer, MapPin } from 'react-feather';
 import { useDocuments } from '../../hooks/useDocuments';
 import { documentService } from '../../services/documentService';
@@ -208,6 +209,12 @@ const ProjectVisualization = () => {
       name: t('relationships'), 
       icon: 'git-branch', 
       description: t('relationships_description') 
+    },
+    { 
+      id: 'chinese-history', 
+      name: '中国历史时间轴', 
+      icon: 'clock', 
+      description: '从秦国到近代的中国历史时间轴可视化' 
     }
   ];
   
@@ -218,6 +225,7 @@ const ProjectVisualization = () => {
       case 'locations': return 'map-pin';
       case 'heatmap': return 'thermometer';
       case 'relationships': return 'git-branch';
+      case 'chinese-history': return 'clock';
       default: return 'bar-chart-2';
     }
   };
@@ -434,6 +442,12 @@ const ProjectVisualization = () => {
                 filters={filters}
                 content={combinedContent}
                 isProjectView={true}
+              />
+            )}
+            {activeTab === 'chinese-history' && (
+              <ChineseHistoryTimeline 
+                annotations={allAnnotations}
+                filters={filters}
               />
             )}
           </div>
