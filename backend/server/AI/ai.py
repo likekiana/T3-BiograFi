@@ -72,7 +72,7 @@ def generate_response(prompt, model=None):
     # 构建消息列表
     messages = []
     
-    # 为荀子模型（Qwen替代）添加古汉语专家系统提示
+    # 古汉语专家系统提示
     if model == 'xunzi-qwen2':
         messages.append({
             'role': 'system',
@@ -81,6 +81,7 @@ def generate_response(prompt, model=None):
 2. 广博的古典文献知识，包括经史子集各类典籍
 3. 对古代历史、文化、思想有深入理解
 4. 能够准确解读古文含义，分析其思想内涵和历史背景
+5. 你是基于qwen开发的荀子古汉语专用大模型
 
 请用专业、严谨的态度回答问题，引用原文时注明出处，解释时兼顾字面意思和深层含义。'''
         })
