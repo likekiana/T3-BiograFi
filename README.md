@@ -61,22 +61,31 @@
 
 ## AI模型说明
 
-本项目使用**百度千帆ERNIE X1**模型，主要功能包括：
+本项目使用以下AI模型，主要功能包括：
+1. **DeepSeek API**：通用大语言模型，用于文本生成和问答
+2. **荀子古汉语大模型**：基于魔搭平台的Xunzillm4cc/Xunzi-Qwen2-1.5B模型，专门用于古汉语文本分析和生成
+
+主要功能：
 - 古文文本解析
 - 古文答疑
 - 自动实体标注（人物、地名、时间、器物、概念）
+- 古汉语翻译
 
 ## 配置说明
 
 ### AI服务配置
 AI服务配置文件位于 `backend/server/AI/config.py`，主要配置项：
-- `API_KEY`：百度千帆API密钥
-- `API_URL`：百度千帆API地址
-- `MODEL_ID`：专属模型ID
+- `DEEPSEEK_API_KEY`：DeepSeek API密钥
+- `DEEPSEEK_API_URL`：DeepSeek API地址
+- `DEEPSEEK_MODEL`：DeepSeek模型名称
+- `MODELSCOPE_API_KEY`：魔搭平台API密钥
+- `MODELSCOPE_API_URL`：魔搭平台API地址
+- `XUNZI_MODEL`：荀子古汉语模型名称
 - `TIMEOUT`：请求超时时间
 
 ### 环境变量
-- `API_KEY`：百度千帆API密钥（必填）
+- `DEEPSEEK_API_KEY`：DeepSeek API密钥（必填）
+- `MODELSCOPE_API_KEY`：魔搭平台API密钥（必填）
 - `DB_USER`：数据库用户名（必填）
 - `DB_PASSWORD`：数据库密码（必填）
 - `DB_NAME`：数据库名称（必填）
