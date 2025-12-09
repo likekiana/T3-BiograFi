@@ -220,8 +220,31 @@ def auto_annotate():
             cleaned = re.sub(r'^```(?:json)?\s*\n', '', cleaned)
             cleaned = re.sub(r'\n```\s*$', '', cleaned)
         
-        # 解析JSON
-        annotations = json.loads(cleaned)
+        # 进一步清理可能的干扰字符
+        # 移除首尾的非JSON字符
+        cleaned = re.sub(r'^[^\[\{]+', '', cleaned)
+        cleaned = re.sub(r'[^\]\}]+$', '', cleaned)
+        
+        # 尝试解析JSON
+        try:
+            annotations = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            # 如果解析失败，尝试修复常见问题
+            # 1. 修复未闭合的字符串（简单处理：移除最后一个未闭合的引号）
+            temp_cleaned = re.sub(r'"[^"]*$', '', cleaned)
+            try:
+                annotations = json.loads(temp_cleaned)
+            except json.JSONDecodeError as e2:
+                # 2. 尝试更宽松的解析：只提取数组部分
+                array_match = re.search(r'\[[\s\S]*?\]', cleaned)
+                if array_match:
+                    array_str = array_match.group(0)
+                    try:
+                        annotations = json.loads(array_str)
+                    except json.JSONDecodeError as e3:
+                        return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 尝试修复后仍失败: {str(e3)}', 'raw_response': response, 'cleaned': cleaned}), 500
+                else:
+                    return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 未找到有效数组', 'raw_response': response, 'cleaned': cleaned}), 500
         
         # 验证并清理数据
         valid_labels = ['人物', '地名', '时间', '器物', '概念']
@@ -259,21 +282,19 @@ def auto_annotate():
         unique_annotations.sort(key=lambda x: x['start'])
         
         return jsonify({'annotations': unique_annotations})
-    except json.JSONDecodeError as e:
-        return jsonify({'error': f'AI返回的格式无法解析: {str(e)}', 'raw_response': response}), 500
     except Exception as e:
-        return jsonify({'error': f'自动标注时出错: {str(e)}'}), 500
+        return jsonify({'error': f'自动标注时出错: {str(e)}', 'raw_response': response if 'response' in locals() else '无响应'}), 500
 
 if __name__ == '__main__':
     print('=' * 60)
     print('古文解析服务启动中...')
-    print('使用 DeepSeek API')
-    if DEEPSEEK_API_KEY:
-        print(f'API Key: {DEEPSEEK_API_KEY[:8]}...{DEEPSEEK_API_KEY[-4:]}')
+    print('使用荀子古汉语大模型')
+    if MODELSCOPE_API_KEY:
+        print(f'API Key: {MODELSCOPE_API_KEY[:8]}...{MODELSCOPE_API_KEY[-4:]}')
     else:
-        print('警告: 未设置 DEEPSEEK_API_KEY 环境变量!')
+        print('警告: 未设置 MODELSCOPE_API_KEY 环境变量!')
         print('请设置环境变量后重启服务:')
-        print('  export DEEPSEEK_API_KEY=your_api_key_here')
+        print('  export MODELSCOPE_API_KEY=your_api_key_here')
     print('服务地址: http://0.0.0.0:5004')
     print('=' * 60)
     app.run(host='0.0.0.0', port=5004, debug=False)
