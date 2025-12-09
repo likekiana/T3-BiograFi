@@ -54,6 +54,7 @@ const EntityAnnotator = ({
   const [entityLabels, setEntityLabels] = useState(loadCustomLabels());
   const [selectedModel, setSelectedModel] = useState('xunzi-qwen2'); // 默认使用荀子古汉语大模型
   const [availableModels, setAvailableModels] = useState([]);
+  const [filterLabel, setFilterLabel] = useState(null); // 筛选标签状态，null表示显示所有
   
   // 加载可用模型列表
   useEffect(() => {
@@ -851,14 +852,19 @@ const EntityAnnotator = ({
   const renderAnnotationList = () => {
     const plainText = getPlainText(content);
     
-    return annotations.length === 0 ? (
+    // 应用筛选条件
+    const filteredAnnotations = filterLabel 
+      ? annotations.filter(annotation => annotation.label === filterLabel)
+      : annotations;
+    
+    return filteredAnnotations.length === 0 ? (
       <div className="empty-annotations">
         <i data-feather="inbox"></i>
-        <p>暂无标注</p>
+        <p>{filterLabel ? '该类型暂无标注' : '暂无标注'}</p>
         {!readOnly && <small>在文本中选择文字进行标注</small>}
       </div>
     ) : (
-      annotations.map((annotation, index) => {
+      filteredAnnotations.map((annotation, index) => {
         const plainText = getPlainText(content);
         const isValid = validateAnnotation(annotation, plainText);
         
@@ -1220,6 +1226,35 @@ const EntityAnnotator = ({
             <h4>{t('annotation_list')} ({annotations.length})</h4>
             {renderStats()}
           </div>
+          
+          {/* 筛选控件 */}
+          <div className="filter-controls">
+            <label>筛选：</label>
+            <div className="filter-select-container">
+              <select
+                value={filterLabel || 'all'}
+                onChange={(e) => setFilterLabel(e.target.value === 'all' ? null : e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">全部标注</option>
+                {entityLabels.map(label => (
+                  <option key={label.value} value={label.value}>
+                    {label.label}
+                  </option>
+                ))}
+              </select>
+              {filterLabel && (
+                <button
+                  className="clear-filter-btn"
+                  onClick={() => setFilterLabel(null)}
+                  title="清除筛选"
+                >
+                  <i data-feather="x"></i>
+                </button>
+              )}
+            </div>
+          </div>
+          
           <div className="annotation-list" ref={annotatedTextRef}>
             {renderAnnotationList()}
           </div>
