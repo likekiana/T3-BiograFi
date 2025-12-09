@@ -1147,6 +1147,13 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
             <i data-feather="code" data-rendered="false"></i>
             <span>标点</span>
           </button>
+
+          {/* AI分词按钮 - 内联版本 */}
+          <Segmentation
+            content={content}
+            onApplySegmentation={handleApplySegmentation}
+          />
+          
         </div>
 
         {toolbarHint && (
