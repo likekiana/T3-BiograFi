@@ -52,9 +52,10 @@ const EntityAnnotator = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState(null);
   const [entityLabels, setEntityLabels] = useState(loadCustomLabels());
-  const [selectedModel, setSelectedModel] = useState('xunzi-qwen2'); // 默认使用荀子古汉语大模型
+  const [selectedModel, setSelectedModel] = useState('xunzi-qwen2');
   const [availableModels, setAvailableModels] = useState([]);
-  const [filterLabel, setFilterLabel] = useState(null); // 筛选标签状态，null表示显示所有
+  const [progress, setProgress] = useState(0);
+  const [cancelRequest, setCancelRequest] = useState(false);
   
   // 加载可用模型列表
   useEffect(() => {
@@ -64,19 +65,25 @@ const EntityAnnotator = ({
   const annotatedTextRef = useRef(null);
   const quickActionsRef = useRef(null);
   const selectionCheckInterval = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  // 取消自动标注
+  const cancelAutoAnnotate = () => {
+    setCancelRequest(true);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  };
 
   // 应用格式化（粗体、斜体、下划线、清除格式）
   const applyFormat = (formatType) => {
-    // 直接操作DOM会导致React虚拟DOM与实际DOM不一致
-    // 这里我们改为只处理编辑器中的格式化，预览框的格式化由编辑器内容驱动
     if (!textareaRef.current) return;
     
     const editor = textareaRef.current;
     editor.focus();
     
-    // 使用document.execCommand进行格式化，这是ContentEditable的标准方式
     try {
-      document.execCommand('formatBlock', false, 'div'); // 确保在块级元素内
+      document.execCommand('formatBlock', false, 'div');
       
       switch (formatType) {
         case 'bold':
@@ -92,7 +99,6 @@ const EntityAnnotator = ({
           return;
       }
       
-      // 触发input事件以更新React状态
       const inputEvent = new Event('input', { bubbles: true });
       editor.dispatchEvent(inputEvent);
     } catch (error) {
@@ -103,18 +109,14 @@ const EntityAnnotator = ({
 
   // 清除格式
   const clearFormat = () => {
-    // 直接操作DOM会导致React虚拟DOM与实际DOM不一致
-    // 这里我们改为只处理编辑器中的格式化，预览框的格式化由编辑器内容驱动
     if (!textareaRef.current) return;
     
     const editor = textareaRef.current;
     editor.focus();
     
     try {
-      // 使用document.execCommand清除格式
       document.execCommand('removeFormat', false, null);
       
-      // 触发input事件以更新React状态
       const inputEvent = new Event('input', { bubbles: true });
       editor.dispatchEvent(inputEvent);
     } catch (error) {
@@ -127,7 +129,6 @@ const EntityAnnotator = ({
   const getPlainText = useCallback((html) => {
     if (!html) return '';
     
-    // 如果是纯文本，直接返回
     if (!html.includes('<') && !html.includes('>')) {
       return html;
     }
@@ -136,21 +137,18 @@ const EntityAnnotator = ({
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = html;
       
-      // 使用 innerText 保留换行和格式
       let text = tempDiv.innerText || tempDiv.textContent || '';
       
-      // 清理多余的空白字符但保留换行
       text = text
-        .replace(/\r\n/g, '\n')        // 统一换行符
-        .replace(/\r/g, '\n')          // 统一换行符
-        .replace(/[ \t]+/g, ' ')       // 合并多个空格和制表符
-        .replace(/^[ \t]+/gm, '')      // 移除行首空白
-        .replace(/[ \t]+$/gm, '');     // 移除行尾空白
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/^[ \t]+/gm, '')
+        .replace(/[ \t]+$/gm, '');
       
       return text;
     } catch (error) {
       console.error('解析HTML失败:', error);
-      // 回退到简单替换
       return html
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n\n')
@@ -163,15 +161,14 @@ const EntityAnnotator = ({
   // 生成随机颜色
   const generateRandomColor = () => {
     const hue = Math.floor(Math.random() * 360);
-    const saturation = 70 + Math.floor(Math.random() * 20); // 70-90%
-    const lightness = 50 + Math.floor(Math.random() * 20); // 50-70%
+    const saturation = 70 + Math.floor(Math.random() * 20);
+    const lightness = 50 + Math.floor(Math.random() * 20);
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
   // 保存自定义标签到 localStorage
   const saveCustomLabels = (labels) => {
     try {
-      // 只保存自定义标签，排除默认标签
       const customOnly = labels.filter(label => 
         !defaultEntityLabels.some(defaultLabel => defaultLabel.value === label.value)
       );
@@ -195,7 +192,6 @@ const EntityAnnotator = ({
       isCustom: true
     };
 
-    // 检查是否已存在
     if (entityLabels.some(label => label.value === newLabel.value)) {
       alert('该标签已存在');
       return;
@@ -211,7 +207,6 @@ const EntityAnnotator = ({
 
   // 删除自定义标签
   const handleDeleteCustomLabel = (labelValue) => {
-    // 检查是否有标注使用该标签
     const isInUse = annotations.some(ann => ann.label === labelValue);
     
     if (isInUse) {
@@ -223,7 +218,6 @@ const EntityAnnotator = ({
     setEntityLabels(updatedLabels);
     saveCustomLabels(updatedLabels);
     
-    // 如果当前选中的是被删除的标签，切换到默认标签
     if (selectedLabel === labelValue) {
       setSelectedLabel('人物');
     }
@@ -236,7 +230,6 @@ const EntityAnnotator = ({
   const confirmDeleteCustomLabel = (labelValue, e) => {
     if (e) e.stopPropagation();
     
-    // 检查是否有标注使用该标签
     const isInUse = annotations.some(ann => ann.label === labelValue);
     
     if (isInUse) {
@@ -298,9 +291,7 @@ const EntityAnnotator = ({
       return;
     }
     
-    // 检查选择是否在文本编辑器中
     const isInEditor = textareaRef?.current && textareaRef.current.contains(selection.anchorNode);
-    // 检查选择是否在文本预览中
     const isInPreview = document.querySelector('.annotated-text')?.contains(selection.anchorNode);
     
     if (!isInEditor && !isInPreview) {
@@ -321,27 +312,20 @@ const EntityAnnotator = ({
     let start = -1;
     let end = -1;
     
-    // 计算在原始文本中的位置
-    // 简单实现：查找选中的文本在原始文本中的位置
-    // 注意：这是一个简化的实现，可能在文本有重复内容时不准确
     start = plainText.indexOf(selectedText);
     if (start !== -1) {
       end = start + selectedText.length;
     } else {
-      // 如果找不到，使用基于选区范围的估算
-      // 这是一个简化的处理方式，实际应用中可能需要更精确的实现
       const textBeforeSelection = plainText.slice(0, Math.min(1000, plainText.length));
       start = textBeforeSelection.length;
       end = start + selectedText.length;
     }
     
-    // 确保位置有效
     if (start < 0 || end <= start) {
       start = 0;
       end = Math.min(selectedText.length, plainText.length);
     }
     
-    // 检查是否与现有标注重叠
     const overlappingAnnotation = annotations.find(ann => 
       (start >= ann.start && start < ann.end) ||
       (end > ann.start && end <= ann.end) ||
@@ -392,9 +376,7 @@ const EntityAnnotator = ({
   // 渲染feather图标
   useEffect(() => {
     if (typeof window !== 'undefined' && window.feather) {
-      // 延迟执行，确保DOM已经渲染完成
       const timer = setTimeout(() => {
-        // 只替换当前组件内的图标
         const annotatorElement = document.querySelector('.entity-annotator');
         if (annotatorElement) {
           const icons = annotatorElement.querySelectorAll('[data-feather]');
@@ -408,7 +390,6 @@ const EntityAnnotator = ({
   useEffect(() => {
     if (readOnly) return;
     
-    // 保存对元素的引用，确保清理时能正确移除事件监听器
     let annotatedTextElement = null;
     
     const handleSelectionChange = () => {
@@ -418,7 +399,6 @@ const EntityAnnotator = ({
     };
     
     const handleMouseUp = (e) => {
-      // 检查点击是否在文本编辑器或文本预览中
       const isInEditor = textareaRef?.current && textareaRef.current.contains(e.target);
       const isInPreview = annotatedTextElement && annotatedTextElement.contains(e.target);
       
@@ -430,14 +410,12 @@ const EntityAnnotator = ({
     };
     
     const handleClick = (e) => {
-      // 检查点击是否在文本预览中
       const isInPreview = annotatedTextElement && annotatedTextElement.contains(e.target);
       if (isInPreview) {
         handleSelectionChange();
       }
     };
     
-    // 为文本编辑器添加事件监听
     if (textareaRef?.current) {
       const editor = textareaRef.current;
       editor.addEventListener('mouseup', handleMouseUp);
@@ -445,29 +423,24 @@ const EntityAnnotator = ({
       editor.addEventListener('click', handleSelectionChange);
     }
     
-    // 为文本预览添加事件监听
     annotatedTextElement = document.querySelector('.annotated-text');
     if (annotatedTextElement) {
       annotatedTextElement.addEventListener('mouseup', handleMouseUp);
       annotatedTextElement.addEventListener('click', handleClick);
     }
     
-    // 全局选择变化监听
     document.addEventListener('selectionchange', handleSelectionChange);
     
-    // 定期检查选择状态
     selectionCheckInterval.current = setInterval(() => {
       checkSelection();
     }, 300);
     
     return () => {
-      // 清理定时器
       if (selectionCheckInterval.current) {
         clearInterval(selectionCheckInterval.current);
         selectionCheckInterval.current = null;
       }
       
-      // 清理文本编辑器事件监听
       if (textareaRef?.current) {
         const editor = textareaRef.current;
         editor.removeEventListener('mouseup', handleMouseUp);
@@ -475,14 +448,12 @@ const EntityAnnotator = ({
         editor.removeEventListener('click', handleSelectionChange);
       }
       
-      // 清理文本预览事件监听（使用保存的引用）
       if (annotatedTextElement) {
         annotatedTextElement.removeEventListener('mouseup', handleMouseUp);
         annotatedTextElement.removeEventListener('click', handleClick);
         annotatedTextElement = null;
       }
       
-      // 清理全局事件监听
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
   }, [textareaRef, checkSelection, readOnly]);
@@ -604,19 +575,16 @@ const EntityAnnotator = ({
     
     const { start, end } = annotation;
     
-    // 检查基本属性
     if (start === undefined || end === undefined) {
       console.warn('标注缺少位置信息:', annotation);
       return false;
     }
     
-    // 检查位置是否有效
     if (start < 0 || end < 0 || start >= end) {
       console.warn('标注位置无效:', annotation);
       return false;
     }
     
-    // 检查是否超出文本范围
     if (end > plainText.length) {
       console.warn('标注超出文本范围:', annotation);
       return false;
@@ -631,17 +599,13 @@ const EntityAnnotator = ({
       .filter(ann => {
         if (!ann) return false;
         
-        // 过滤掉无效的标注
         if (ann.start >= ann.end) return false;
         if (ann.end > plainText.length) return false;
         
         const actualText = plainText.slice(ann.start, ann.end);
-        
-        // 过滤掉过短的标注和纯标点符号
         const trimmedText = actualText.trim();
         if (trimmedText.length <= 1) return false;
         
-        // 过滤掉只有标点符号的标注
         const punctuationRegex = /^[，。；：！？、,.!?:;'\"]+$/;
         if (punctuationRegex.test(trimmedText)) return false;
         
@@ -651,26 +615,60 @@ const EntityAnnotator = ({
         const actualText = plainText.slice(ann.start, ann.end);
         return {
           ...ann,
-          text: actualText, // 确保使用正确的文本
-          label: ann.label || '其他' // 确保有标签
+          text: actualText,
+          label: ann.label || '其他'
         };
       });
   }, []);
 
-  // 自动标注
+  // 自动标注 - 优化版本
   const handleAutoAnnotate = async () => {
     if (!content.trim() || readOnly) {
       alert(t('input_text_first'));
       return;
     }
 
+    // 重置状态
     setAutoAnnotating(true);
+    setProgress(0);
+    setCancelRequest(false);
+    
+    // 创建AbortController用于取消请求
+    abortControllerRef.current = new AbortController();
+    
     try {
       const plainText = getPlainText(content);
       console.log('原始文本长度:', plainText.length);
-      console.log('前100字符:', plainText.substring(0, 100));
       
-      const aiAnnotations = await aiService.autoAnnotateEntities(plainText, selectedModel);
+      // 检查文本长度，如果太长给出警告
+      if (plainText.length > 5000) {
+        const shouldContinue = window.confirm(
+          `文本长度较长（${plainText.length}字符），自动标注可能需要一些时间。\n是否继续？`
+        );
+        if (!shouldContinue) {
+          setAutoAnnotating(false);
+          setProgress(0);
+          return;
+        }
+      }
+      
+      // 显示进度
+      setProgress(10);
+      
+      // 使用安全版本，传递取消信号
+      const aiAnnotations = await aiService.autoAnnotateEntitiesSafe(
+        plainText, 
+        selectedModel, 
+        (current, total) => {
+          // 进度回调
+          const percent = Math.floor((current / total) * 80) + 10;
+          setProgress(percent);
+        }, 
+        abortControllerRef.current?.signal
+      );
+      
+      setProgress(90);
+      
       console.log('AI 返回的标注:', aiAnnotations);
       
       // 验证每个标注的文本是否正确
@@ -678,7 +676,6 @@ const EntityAnnotator = ({
         if (!ann) return null;
         
         const actualText = plainText.slice(ann.start, ann.end);
-        console.log(`标注 ${index}: start=${ann.start}, end=${ann.end}, AI文本="${ann.text}", 实际文本="${actualText}"`);
         
         // 如果文本不匹配，使用实际文本
         if (ann.text !== actualText) {
@@ -704,23 +701,50 @@ const EntityAnnotator = ({
       
       console.log('过滤后的标注:', uniqueAnnotations);
 
+      // 批量添加标注
+      let addedCount = 0;
       for (const ann of uniqueAnnotations) {
+        if (cancelRequest) break;
+        
         if (onAddAnnotation) {
           onAddAnnotation({
             ...ann,
-            id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${addedCount}`,
             source: 'ai',
             confidence: ann.confidence || 0.8
           });
+          addedCount++;
+        }
+        
+        // 每添加50个标注，更新一次进度并让出主线程
+        if (addedCount % 50 === 0) {
+          const annotationProgress = 90 + Math.floor((addedCount / uniqueAnnotations.length) * 10);
+          setProgress(annotationProgress);
+          // 让出主线程，避免卡顿
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
 
-      alert(`AI 自动标注完成，共标注 ${uniqueAnnotations.length} 个实体（过滤了${aiAnnotations.length - uniqueAnnotations.length}个重叠标注）`);
+      setProgress(100);
+      
+      if (cancelRequest) {
+        alert('自动标注已取消');
+      } else {
+        alert(`AI 自动标注完成，共标注 ${uniqueAnnotations.length} 个实体`);
+      }
     } catch (error) {
       console.error('自动标注失败:', error);
-      alert(`自动标注失败: ${error.message}`);
+      if (error.name === 'AbortError') {
+        alert('自动标注已取消');
+      } else {
+        alert(`自动标注失败: ${error.message}`);
+      }
     } finally {
-      setAutoAnnotating(false);
+      setTimeout(() => {
+        setAutoAnnotating(false);
+        setProgress(0);
+        abortControllerRef.current = null;
+      }, 500);
     }
   };
 
@@ -852,24 +876,19 @@ const EntityAnnotator = ({
   const renderAnnotationList = () => {
     const plainText = getPlainText(content);
     
-    // 应用筛选条件
-    const filteredAnnotations = filterLabel 
-      ? annotations.filter(annotation => annotation.label === filterLabel)
-      : annotations;
-    
-    return filteredAnnotations.length === 0 ? (
+    return annotations.length === 0 ? (
       <div className="empty-annotations">
         <i data-feather="inbox"></i>
-        <p>{filterLabel ? '该类型暂无标注' : '暂无标注'}</p>
+        <p>暂无标注</p>
         {!readOnly && <small>在文本中选择文字进行标注</small>}
       </div>
     ) : (
-      filteredAnnotations.map((annotation, index) => {
+      annotations.map((annotation, index) => {
         const plainText = getPlainText(content);
         const isValid = validateAnnotation(annotation, plainText);
         
         if (!isValid) {
-          return null; // 跳过无效标注
+          return null;
         }
         
         const actualText = plainText.slice(annotation.start, annotation.end);
@@ -901,7 +920,7 @@ const EntityAnnotator = ({
               </span>
             </div>
             <span className="annotation-text" title={`位置: ${annotation.start}-${annotation.end}`}>
-              "{actualText}" {/* 使用实际文本 */}
+              "{actualText}"
               {annotation.confidence && (
                 <span className="confidence-badge">
                   {(annotation.confidence * 100).toFixed(0)}%
@@ -921,7 +940,7 @@ const EntityAnnotator = ({
             )}
           </div>
         );
-      }).filter(Boolean) // 过滤掉null
+      }).filter(Boolean)
     );
   };
 
@@ -930,11 +949,8 @@ const EntityAnnotator = ({
     if (readOnly) return;
     
     const newContent = e.target.innerHTML;
-    // 调用父组件的更新函数（通过TextEditor传递）
     if (textareaRef.current) {
-      // 同步更新编辑器内容
       textareaRef.current.innerHTML = newContent;
-      // 触发input事件以更新状态
       const inputEvent = new Event('input', { bubbles: true });
       textareaRef.current.dispatchEvent(inputEvent);
     }
@@ -944,10 +960,8 @@ const EntityAnnotator = ({
   const handlePreviewKeyDown = (e) => {
     if (readOnly) return;
     
-    // 支持快捷键
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      // 保存功能由父组件处理
     }
   };
 
@@ -960,17 +974,14 @@ const EntityAnnotator = ({
     const elements = [];
     let elementCounter = 0;
     
-    // 先按开始位置排序
     const sortedAnnotations = [...annotations].sort((a, b) => a.start - b.start);
 
     sortedAnnotations.forEach((annotation, annotationIndex) => {
-      // 验证标注范围是否有效
       if (!validateAnnotation(annotation, plainText)) {
         console.warn('无效的标注，跳过:', annotation);
         return;
       }
 
-      // 添加未标注的文本 - 处理换行
       if (annotation.start > lastIndex) {
         const textSegment = plainText.slice(lastIndex, annotation.start);
         const lines = textSegment.split('\n');
@@ -987,10 +998,7 @@ const EntityAnnotator = ({
         });
       }
 
-      // 获取实际的标注文本
       const actualText = plainText.slice(annotation.start, annotation.end);
-      
-      // 处理标注文本中的换行
       const annotationLines = actualText.split('\n');
       
       annotationLines.forEach((line, lineIndex) => {
@@ -999,11 +1007,9 @@ const EntityAnnotator = ({
         }
         
         if (line.trim()) {
-          // 获取标签颜色
           const labelConfig = entityLabels.find(l => l.value === annotation.label);
-          const color = labelConfig ? labelConfig.color : '#64748b'; // 默认灰色
+          const color = labelConfig ? labelConfig.color : '#64748b';
           
-          // 使用稳定的唯一key
           const annotationKey = annotation.id ? `annotation-${annotation.id}-${lineIndex}` : `annotation-${annotationIndex}-${lineIndex}-${elementCounter++}`;
           
           elements.push(
@@ -1053,7 +1059,6 @@ const EntityAnnotator = ({
       lastIndex = annotation.end;
     });
 
-    // 添加剩余的文本
     if (lastIndex < plainText.length) {
       const textSegment = plainText.slice(lastIndex);
       const lines = textSegment.split('\n');
@@ -1179,7 +1184,6 @@ const EntityAnnotator = ({
                 <i data-feather="tag"></i> 对选中文本打标
               </button>
               
-              {/* 模型选择器 */}
               <div className="model-selector">
                 <label htmlFor="ai-model-select" className="model-select-label">模型选择:</label>
                 <select
@@ -1206,7 +1210,16 @@ const EntityAnnotator = ({
                 <i data-feather="zap"></i> 
                 {autoAnnotating ? '标注中...' : 'AI自动标注'}
               </button>
-              {annotations.length > 0 && (
+              {autoAnnotating && (
+                <button
+                  className="action-btn danger"
+                  onClick={cancelAutoAnnotate}
+                  title="取消标注"
+                >
+                  <i data-feather="x"></i> 取消
+                </button>
+              )}
+              {annotations.length > 0 && !autoAnnotating && (
                 <button
                   className="action-btn danger"
                   onClick={handleClearAllAnnotations}
@@ -1219,6 +1232,21 @@ const EntityAnnotator = ({
           </div>
         )}
 
+        {autoAnnotating && (
+          <div className="progress-container">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <div className="progress-text">
+              自动标注中: {progress}%
+              {progress < 100 && ' 请稍候...'}
+            </div>
+          </div>
+        )}
+
         {renderQuickActions()}
 
         <div className="annotation-preview merged-preview">
@@ -1226,35 +1254,6 @@ const EntityAnnotator = ({
             <h4>{t('annotation_list')} ({annotations.length})</h4>
             {renderStats()}
           </div>
-          
-          {/* 筛选控件 */}
-          <div className="filter-controls">
-            <label>筛选：</label>
-            <div className="filter-select-container">
-              <select
-                value={filterLabel || 'all'}
-                onChange={(e) => setFilterLabel(e.target.value === 'all' ? null : e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">全部标注</option>
-                {entityLabels.map(label => (
-                  <option key={label.value} value={label.value}>
-                    {label.label}
-                  </option>
-                ))}
-              </select>
-              {filterLabel && (
-                <button
-                  className="clear-filter-btn"
-                  onClick={() => setFilterLabel(null)}
-                  title="清除筛选"
-                >
-                  <i data-feather="x"></i>
-                </button>
-              )}
-            </div>
-          </div>
-          
           <div className="annotation-list" ref={annotatedTextRef}>
             {renderAnnotationList()}
           </div>
@@ -1274,7 +1273,6 @@ const EntityAnnotator = ({
               ))}
             </div>
           </div>
-          
           
           <div 
             className="annotated-text contenteditable"
