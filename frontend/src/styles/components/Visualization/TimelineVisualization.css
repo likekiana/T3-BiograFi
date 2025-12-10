@@ -9,16 +9,62 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   padding-bottom: 10px;
   border-bottom: 2px solid #e9ecef;
   flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .timeline-visualization h3 {
   margin: 0;
   color: #333;
   font-size: 1.3em;
+}
+
+.character-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.character-badge i {
+  width: 14px;
+  height: 14px;
+}
+
+.timeline-info-bar {
+  display: flex;
+  justify-content: space-between;
+  background: #f8f9fa;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+  color: #495057;
+  border: 1px solid #e9ecef;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-item i {
+  width: 16px;
+  height: 16px;
 }
 
 .export-buttons {
@@ -113,12 +159,32 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border: 1px solid #e9ecef;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .timeline-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  border-color: #007bff;
+}
+
+.timeline-item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(102, 126, 234, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.timeline-item:hover::after {
+  opacity: 1;
 }
 
 .timeline-marker {
@@ -132,6 +198,12 @@
   border-radius: 50%;
   box-shadow: 0 0 0 3px #007bff;
   z-index: 2;
+  transition: all 0.3s;
+}
+
+.timeline-item:hover .timeline-marker {
+  transform: scale(1.2);
+  background: #0056b3;
 }
 
 .timeline-content {
@@ -146,7 +218,7 @@
   margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
 
 .timeline-time::before {
@@ -156,6 +228,28 @@
   background: #007bff;
   border-radius: 50%;
   display: inline-block;
+  margin-right: 8px;
+}
+
+.click-hint {
+  font-size: 0.85em;
+  color: #666;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.7;
+  transition: all 0.3s;
+}
+
+.click-hint i {
+  width: 14px;
+  height: 14px;
+}
+
+.timeline-item:hover .click-hint {
+  opacity: 1;
+  color: #007bff;
 }
 
 .timeline-description {
@@ -259,6 +353,32 @@
   background: #17a2b8;
 }
 
+.event-action-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  padding: 10px 15px;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 6px;
+  font-size: 0.85em;
+  border-left: 3px solid #ffc107;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s;
+}
+
+.timeline-item:hover .event-action-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.event-action-hint i {
+  width: 14px;
+  height: 14px;
+}
+
 /* 滚动条样式 */
 .timeline-scroll-container::-webkit-scrollbar {
   width: 8px;
@@ -310,6 +430,11 @@
   border-radius: 8px;
   border: 1px solid #e9ecef;
   border-left: 4px solid #007bff;
+  transition: all 0.3s;
+}
+
+.timeline-summary:hover {
+  background: #e9ecef;
 }
 
 .summary-header {
@@ -336,6 +461,28 @@
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .timeline-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .export-buttons {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .timeline-info-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
   .timeline {
     padding-left: 20px;
   }
@@ -346,6 +493,16 @@
   
   .timeline-content {
     padding: 15px;
+  }
+  
+  .timeline-time {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .click-hint {
+    align-self: flex-end;
   }
   
   .timeline-description {
@@ -364,5 +521,10 @@
   
   .summary-content {
     font-size: 0.85em;
+  }
+  
+  .event-action-hint {
+    font-size: 0.8em;
+    padding: 8px 12px;
   }
 }
