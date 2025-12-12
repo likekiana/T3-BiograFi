@@ -313,40 +313,18 @@ const EntityAnnotator = ({
     let start = -1;
     let end = -1;
     
-    // 改进的位置计算：使用精确的文本匹配
-    const selectionStartOffset = range.startOffset;
-    const selectionEndOffset = range.endOffset;
-    const parentNode = range.startContainer;
+    // 确保基于文本内容查找位置，而不仅仅是默认逻辑
+    start = plainText.indexOf(selectedText);
+    if (start !== -1) {
+      end = start + selectedText.length;
+    } else {
+      console.warn(`在文本中找不到选中的文本 "${selectedText}"`);
+      return;
+    }
     
-    // 计算相对于整个文本的位置
-    const getCharOffset = (node, offset) => {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = content;
-      const textContent = tempDiv.textContent || tempDiv.innerText || '';
-      
-      // 尝试找到选中文本在全文中的位置
-      const matchIndex = textContent.indexOf(selectedText);
-      if (matchIndex !== -1) {
-        return {
-          start: matchIndex,
-          end: matchIndex + selectedText.length
-        };
-      }
-      
-      // 如果找不到精确匹配，使用近似位置
-      return {
-        start: 0,
-        end: Math.min(selectedText.length, textContent.length)
-      };
-    };
-    
-    const offsets = getCharOffset(parentNode, selectionStartOffset);
-    start = offsets.start;
-    end = offsets.end;
-    
-    if (start < 0 || end <= start) {
-      start = 0;
-      end = Math.min(selectedText.length, plainText.length);
+    if (start < 0 || end <= start || end > plainText.length) {
+      console.warn(`选中的文本位置无效: start=${start}, end=${end}, textLength=${plainText.length}`);
+      return;
     }
     
     const overlappingAnnotation = annotations.find(ann => 
@@ -848,6 +826,22 @@ const EntityAnnotator = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="quick-actions-content">
+          {isEditing && (
+            <div className="quick-actions-header">
+              <span className="current-annotation-text">"{editingAnnotation.text}"</span>
+              <button
+                className="delete-annotation-quick-btn"
+                onClick={() => {
+                  if (editingAnnotation) {
+                    handleDeleteAnnotation(editingAnnotation);
+                  }
+                }}
+                title="删除此标注"
+              >
+                <span className="delete-icon">×</span>
+              </button>
+            </div>
+          )}
           <div className="label-buttons-container">
             <div className="label-buttons-scroll">
               {entityLabels.map((label) => {
@@ -896,36 +890,6 @@ const EntityAnnotator = ({
               })}
             </div>
           </div>
-          
-          {/* 添加删除标注按钮 */}
-          {isEditing && (
-            <div className="quick-actions-footer">
-              <button
-                className="delete-annotation-quick-btn"
-                onClick={() => {
-                  if (editingAnnotation) {
-                    handleDeleteAnnotation(editingAnnotation);
-                  }
-                }}
-                title="删除当前标注"
-                style={{
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  margin: '10px auto 0'
-                }}
-              >
-                <span>删除标注</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -1057,63 +1021,63 @@ const EntityAnnotator = ({
         });
       }
 
-      const actualText = plainText.slice(annotation.start, annotation.end);
-      const annotationLines = actualText.split('\n');
-      
-      annotationLines.forEach((line, lineIndex) => {
-        if (lineIndex > 0) {
-          elements.push(<br key={`annotation-br-${elementCounter++}`} />);
-        }
+      // 使用标注的文本内容，而不是从位置截取
+        const annotationLines = annotation.text.split('\n');
         
-        if (line.trim()) {
-          const labelConfig = entityLabels.find(l => l.value === annotation.label);
-          const color = labelConfig ? labelConfig.color : '#64748b';
+        annotationLines.forEach((line, lineIndex) => {
+          if (lineIndex > 0) {
+            elements.push(<br key={`annotation-br-${elementCounter++}`} />);
+          }
           
-          const annotationKey = annotation.id ? `annotation-${annotation.id}-${lineIndex}` : `annotation-${annotationIndex}-${lineIndex}-${elementCounter++}`;
-          
-          elements.push(
-            <span
-              key={annotationKey}
-              className={`entity-annotation ${
-                currentHoverAnnotation?.id === annotation.id ? 'annotation-highlight' : ''
-              } ${
-                editingAnnotation?.id === annotation.id ? 'annotation-editing' : ''
-              }`}
-              style={{
-                backgroundColor: `${color}20`,
-                borderColor: color,
-                borderBottom: `2px solid ${color}`
-              }}
-              title={`${annotation.label}: ${annotation.text}${
-                annotation.source ? ` (${annotation.source})` : ''
-              }${annotation.confidence ? ` 置信度: ${(annotation.confidence * 100).toFixed(1)}%` : ''}`}
-              onClick={(e) => handleAnnotationClick(annotation, annotationIndex, e)}
-              onMouseEnter={() => setCurrentHoverAnnotation(annotation)}
-              onMouseLeave={() => setCurrentHoverAnnotation(null)}
-            >
-              {line}
-              {!readOnly && (
-                <button
-                  className="annotation-delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteAnnotation(annotation);
-                  }}
-                  title="删除标注"
-                >
-                  <i data-feather="x"></i>
-                </button>
-              )}
-            </span>
-          );
-        } else {
-          elements.push(
-            <span key={`annotation-empty-${elementCounter++}`}>
-              {line}
-            </span>
-          );
-        }
-      });
+          if (line.trim()) {
+            const labelConfig = entityLabels.find(l => l.value === annotation.label);
+            const color = labelConfig ? labelConfig.color : '#64748b';
+            
+            const annotationKey = annotation.id ? `annotation-${annotation.id}-${lineIndex}` : `annotation-${annotationIndex}-${lineIndex}-${elementCounter++}`;
+            
+            elements.push(
+              <span
+                key={annotationKey}
+                className={`entity-annotation ${
+                  currentHoverAnnotation?.id === annotation.id ? 'annotation-highlight' : ''
+                } ${
+                  editingAnnotation?.id === annotation.id ? 'annotation-editing' : ''
+                }`}
+                style={{
+                  backgroundColor: `${color}20`,
+                  borderColor: color,
+                  borderBottom: `2px solid ${color}`
+                }}
+                title={`${annotation.label}: ${annotation.text}${
+                  annotation.source ? ` (${annotation.source})` : ''
+                }${annotation.confidence ? ` 置信度: ${(annotation.confidence * 100).toFixed(1)}%` : ''}`}
+                onClick={(e) => handleAnnotationClick(annotation, annotationIndex, e)}
+                onMouseEnter={() => setCurrentHoverAnnotation(annotation)}
+                onMouseLeave={() => setCurrentHoverAnnotation(null)}
+              >
+                {line}
+                {!readOnly && (
+                  <button
+                    className="annotation-delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteAnnotation(annotation);
+                    }}
+                    title="删除标注"
+                  >
+                    <i data-feather="x"></i>
+                  </button>
+                )}
+              </span>
+            );
+          } else {
+            elements.push(
+              <span key={`annotation-empty-${elementCounter++}`}>
+                {line}
+              </span>
+            );
+          }
+        });
 
       lastIndex = annotation.end;
     });

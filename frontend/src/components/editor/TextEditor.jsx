@@ -211,98 +211,118 @@ const TextEditor = ({
   const createPreviewPages = useCallback((plainText) => {
     if (!plainText) return { pages: [], totalPages: 1 };
     
-    // 直接使用原始plainText，不经过splitTextIntoPages处理
-    const originalPlainText = plainText;
-    
-    // 计算每页可容纳的字符数（估算）
-    const contentWidth = PAGE_CONFIG.CONTENT_WIDTH;
-    const lineHeight = PAGE_CONFIG.FONT_SIZE * PAGE_CONFIG.LINE_HEIGHT;
-    const pageHeight = PAGE_CONFIG.HEIGHT - 2 * PAGE_CONFIG.VERTICAL_PADDING;
-    const linesPerPage = Math.floor(pageHeight / lineHeight);
-    const charsPerLine = Math.floor(contentWidth / (PAGE_CONFIG.FONT_SIZE * 0.6));
-    const charsPerPage = linesPerPage * charsPerLine;
-    
-    // 如果内容很短，只有一页
-    let textPages;
-    let totalPages;
-    
-    if (plainText.length <= charsPerPage) {
-      textPages = [plainText];
-      totalPages = 1;
-    } else {
-      // 按字符分割文本到各页，但保持原始文本不变
-      textPages = [];
-      let startIndex = 0;
-      
-      while (startIndex < plainText.length) {
-        let endIndex = Math.min(startIndex + charsPerPage, plainText.length);
-        
-        if (endIndex < plainText.length) {
-          // 尝试在段落结束处分页
-          const lastNewLine = plainText.lastIndexOf('\n\n', endIndex);
-          const lastPeriod = plainText.lastIndexOf('。', endIndex);
-          const lastComma = plainText.lastIndexOf('，', endIndex);
-          const lastSpace = plainText.lastIndexOf(' ', endIndex);
-          
-          // 优先在段落结束处分页
-          if (lastNewLine > startIndex + charsPerPage * 0.5) {
-            endIndex = lastNewLine + 2;
-          } else if (lastPeriod > startIndex + charsPerPage * 0.5) {
-            endIndex = lastPeriod + 1;
-          } else if (lastComma > startIndex + charsPerPage * 0.5) {
-            endIndex = lastComma + 1;
-          } else if (lastSpace > startIndex + charsPerPage * 0.5) {
-            endIndex = lastSpace + 1;
-          }
-        }
-        
-        const pageText = plainText.substring(startIndex, endIndex);
-        textPages.push(pageText);
-        startIndex = endIndex;
-      }
-      
-      totalPages = textPages.length;
-    }
+    const { pages: textPages, totalPages } = splitTextIntoPages(plainText, true);
     
     // 为每页创建带标注的HTML
     const pagesWithAnnotations = textPages.map((pageText, pageIndex) => {
       const container = document.createElement('div');
       container.className = 'annotated-text-container';
       
-      // 计算该页文本在整个文本中的位置 - 基于原始文本
+      // 计算该页文本在整个文本中的位置
       const pageStart = textPages.slice(0, pageIndex).reduce((sum, page) => sum + page.length, 0);
       const pageEnd = pageStart + pageText.length;
       
-      // 获取该页范围内的标注 - 使用原始plainText验证
-      const pageAnnotations = annotations
+      // 获取所有有效的标注，并按文本内容在当前页中的位置排序
+      const validAnnotations = annotations
         .filter(ann => {
-          if (!validateAnnotation(ann, originalPlainText)) return false;
+          // 检查标注是否有文本内容
+          if (!ann.text) return false;
+          // 验证标注文本在实际文本中存在
+          return plainText.includes(ann.text);
+        })
+        // 为每个标注计算其在当前文本中的实际位置
+        .map(ann => {
+          // 在实际文本中查找标注文本的位置
+          const startIndex = plainText.indexOf(ann.text);
+          if (startIndex !== -1) {
+            return {
+              ...ann,
+              start: startIndex,
+              end: startIndex + ann.text.length
+            };
+          }
+          return null;
+        })
+        .filter(Boolean)
+        // 过滤出当前页范围内的标注
+        .filter(ann => {
           const overlapStart = Math.max(ann.start, pageStart);
           const overlapEnd = Math.min(ann.end, pageEnd);
           return overlapStart < overlapEnd;
         })
+        // 按标注在当前页中的实际位置排序
         .sort((a, b) => a.start - b.start);
       
       let lastIndex = 0;
+      let processedText = pageText;
       
-      pageAnnotations.forEach((annotation) => {
-        // 计算标注在当前页中的位置
-        const annStart = Math.max(annotation.start - pageStart, 0);
-        const annEnd = Math.min(annotation.end - pageStart, pageText.length);
+      // 创建一个数组来存储文本片段和标注
+      const contentFragments = [];
+      
+      // 首先添加所有非标注文本片段
+      if (validAnnotations.length === 0) {
+        // 没有标注，直接添加整个页面文本
+        contentFragments.push({
+          type: 'text',
+          content: pageText
+        });
+      } else {
+        validAnnotations.forEach((annotation) => {
+          // 计算标注在当前页中的实际位置
+          const actualStart = annotation.start;
+          const actualEnd = annotation.end;
+          
+          // 计算标注在当前页文本中的相对位置
+          const pageRelativeStart = actualStart - pageStart;
+          const pageRelativeEnd = actualEnd - pageStart;
+          
+          // 确保位置在当前页范围内
+          if (pageRelativeStart >= 0 && pageRelativeEnd <= pageText.length) {
+            // 添加标注前的文本
+            if (pageRelativeStart > lastIndex) {
+              const textSegment = pageText.slice(lastIndex, pageRelativeStart);
+              if (textSegment) {
+                contentFragments.push({
+                  type: 'text',
+                  content: textSegment
+                });
+              }
+            }
+            
+            // 添加标注
+            contentFragments.push({
+              type: 'annotation',
+              content: annotation.text,
+              annotation: annotation
+            });
+            
+            lastIndex = pageRelativeEnd;
+          }
+        });
         
-        if (annStart > lastIndex) {
-          const textSegment = pageText.slice(lastIndex, annStart);
+        // 添加最后一个标注后的文本
+        if (lastIndex < pageText.length) {
+          const textSegment = pageText.slice(lastIndex);
           if (textSegment) {
-            const textSpan = document.createElement('span');
-            textSpan.className = 'plain-text';
-            textSpan.textContent = textSegment;
-            container.appendChild(textSpan);
+            contentFragments.push({
+              type: 'text',
+              content: textSegment
+            });
           }
         }
-        
-        // 确保标注文本与实际文本匹配
-        const actualText = pageText.slice(annStart, annEnd);
-        if (actualText.trim()) {
+      }
+      
+      // 将内容片段转换为DOM元素
+      contentFragments.forEach(fragment => {
+        if (fragment.type === 'text') {
+          // 添加普通文本
+          const textSpan = document.createElement('span');
+          textSpan.className = 'plain-text';
+          textSpan.textContent = fragment.content;
+          container.appendChild(textSpan);
+        } else if (fragment.type === 'annotation') {
+          // 添加标注
+          const annotation = fragment.annotation;
           const labelConfig = entityLabels.find(l => l.value === annotation.label);
           const color = labelConfig ? labelConfig.color : '#64748b';
           
@@ -319,7 +339,7 @@ const TextEditor = ({
             line-height: inherit;
             font-size: 16px;
           `;
-          annotationSpan.textContent = actualText;
+          annotationSpan.textContent = fragment.content;
           
           const badgeSpan = document.createElement('span');
           badgeSpan.className = 'annotation-label-badge';
@@ -338,25 +358,13 @@ const TextEditor = ({
           annotationSpan.appendChild(badgeSpan);
           container.appendChild(annotationSpan);
         }
-        
-        lastIndex = annEnd;
       });
-      
-      if (lastIndex < pageText.length) {
-        const textSegment = pageText.slice(lastIndex);
-        if (textSegment) {
-          const textSpan = document.createElement('span');
-          textSpan.className = 'plain-text';
-          textSpan.textContent = textSegment;
-          container.appendChild(textSpan);
-        }
-      }
       
       return container.outerHTML;
     });
     
     return { pages: pagesWithAnnotations, totalPages };
-  }, [annotations, entityLabels, validateAnnotation]);
+  }, [annotations, entityLabels, splitTextIntoPages]);
 
   // 初始化分页
   useEffect(() => {
@@ -379,9 +387,9 @@ const TextEditor = ({
     if (currentPage > newTotalPages) {
       setCurrentPage(1);
     }
-  }, [content, showPreviewInline, annotations]);
+  }, [content, showPreviewInline]);
 
-  // 当文本、标注或模式变化时更新分页
+  // 当文本或模式变化时更新分页
   useEffect(() => {
     const plainText = getPlainText(text);
     let newTotalPages = 1;
@@ -394,7 +402,7 @@ const TextEditor = ({
     
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
-  }, [text, showPreviewInline, annotations]);
+  }, [text, showPreviewInline]);
 
   // 当当前页变化时，确保editorRef更新内容
   useEffect(() => {

@@ -278,14 +278,61 @@ const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => 
     await performSave(newContent, newDocName, newAuthor);
   }, 1000);
 
+  // 更新标注，确保它们与实际文本内容匹配
+  const updateAnnotationsToMatchText = useCallback((newContent, oldContent, currentAnnotations) => {
+    const newPlainText = getPlainTextFromHtml(newContent);
+    const oldPlainText = getPlainTextFromHtml(oldContent);
+    
+    // 如果文本没有变化，直接返回原标注
+    if (newPlainText === oldPlainText) {
+      return currentAnnotations;
+    }
+    
+    // 对每个标注，重新计算其在新文本中的位置
+    return currentAnnotations.map(annotation => {
+      // 从原标注获取文本内容
+      const originalText = annotation.text;
+      
+      // 如果标注文本为空，跳过
+      if (!originalText) {
+        return null;
+      }
+      
+      // 在新文本中查找标注文本
+      const startIndex = newPlainText.indexOf(originalText);
+      
+      // 如果找到了，更新位置和文本
+      if (startIndex !== -1) {
+        return {
+          ...annotation,
+          start: startIndex,
+          end: startIndex + originalText.length,
+          text: originalText
+        };
+      } else {
+        // 如果找不到完全匹配的文本，尝试查找相似内容或标记为无效
+        console.warn(`标注文本 "${originalText}" 在新内容中找不到，将被移除`);
+        return null;
+      }
+    }).filter(Boolean); // 过滤掉无效标注
+  }, [getPlainTextFromHtml]);
+
   // 内容变化处理
   const handleContentChange = (newContent) => {
     if (newContent !== content) {
-      addToHistory();
+      // 更新标注，确保它们与实际文本内容匹配
+      const updatedAnnotations = updateAnnotationsToMatchText(newContent, content, annotations);
+      
+      // 只有当标注或内容发生变化时，才添加到历史记录
+      if (JSON.stringify(updatedAnnotations) !== JSON.stringify(annotations) || newContent !== content) {
+        addToHistory();
+      }
+      
+      setContent(newContent);
+      setAnnotations(updatedAnnotations);
+      setSaveStatus('saving');
+      debouncedSave(newContent, documentName, author);
     }
-    setContent(newContent);
-    setSaveStatus('saving');
-    debouncedSave(newContent, documentName, author);
   };
 
   const handleDocumentNameChange = (newDocName) => {
@@ -835,40 +882,23 @@ const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => 
   const handleAddAnnotation = async (annotation) => {
     if (!currentDoc) return;
     try {
-      // 1. 先更新本地状态，实现即时界面更新
-      const newAnnotations = [...annotations, annotation];
-      setAnnotations(newAnnotations);
-      addToHistory();
-      
-      // 2. 然后调用API保存到服务器
       await addEntityAnnotation(currentDoc.id, annotation);
-      // 3. 刷新数据确保与服务器同步
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      await loadEntityAnnotations();
+      await loadRelationAnnotations();
+      addToHistory();
     } catch (error) {
       console.error('添加实体标注失败:', error);
-      // 4. 如果API失败，重新加载数据恢复正确状态
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     }
   };
 
   const handleDeleteAnnotation = async (annotation) => {
     if (!currentDoc || !annotation) return;
     try {
-      // 1. 先更新本地状态，实现即时界面更新
-      const newAnnotations = annotations.filter(ann => 
-        ann.id !== annotation.id
-      );
-      setAnnotations(newAnnotations);
-      addToHistory();
-      
-      // 2. 然后调用API保存到服务器
       await deleteEntityAnnotation(currentDoc.id, annotation);
-      // 3. 刷新数据确保与服务器同步
       await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      addToHistory();
     } catch (error) {
       console.error('删除实体标注失败:', error);
-      // 4. 如果API失败，重新加载数据恢复正确状态
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
       alert(`删除标注失败: ${error.message || '未知错误'}`);
     }
   };
@@ -900,22 +930,12 @@ const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => 
   const handleUpdateAnnotation = async (oldAnnotation, newAnnotation) => {
     if (!currentDoc || !oldAnnotation || !newAnnotation) return;
     try {
-      // 1. 先更新本地状态，实现即时界面更新
-      const newAnnotations = annotations.map(ann => 
-        ann.id === oldAnnotation.id ? newAnnotation : ann
-      );
-      setAnnotations(newAnnotations);
-      addToHistory();
-      
-      // 2. 然后调用API保存到服务器
       await deleteEntityAnnotation(currentDoc.id, oldAnnotation);
       await addEntityAnnotation(currentDoc.id, newAnnotation);
-      // 3. 刷新数据确保与服务器同步
       await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      addToHistory();
     } catch (error) {
       console.error('更新实体标注失败:', error);
-      // 4. 如果API失败，重新加载数据恢复正确状态
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
       alert(`更新标注失败: ${error.message || '未知错误'}`);
     }
   };
@@ -1132,6 +1152,19 @@ const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => 
     <div className="editor-container">
       <div className="editor-header">
         <div className="header-top">
+          {/* 返回按钮 */}
+          <button
+            className="back-btn"
+            onClick={() => {
+              // 返回到项目页面，使用当前文档的项目ID
+              navigate(`/project/${currentDoc.projectId || '1765257706548gook2qi42'}`);
+            }}
+            title="返回项目页面"
+          >
+            <i data-feather="arrow-left" data-rendered="false"></i>
+            返回项目
+          </button>
+          
           <h2 className="editor-title">
             {currentDoc.name} - {t('document_editor')}
           </h2>

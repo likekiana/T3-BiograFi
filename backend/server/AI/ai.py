@@ -251,8 +251,8 @@ def auto_annotate():
 
 请直接返回JSON格式的标注结果，格式如下：
 [
-  {"text": "实体文本", "label": "人物"},
-  {"text": "实体文本", "label": "地名"}
+  {{"text": "实体文本", "label": "人物"}},
+  {{"text": "实体文本", "label": "地名"}}
 ]
 
 注意：
@@ -262,40 +262,49 @@ def auto_annotate():
 """
     
     try:
-        response = generate_response(roomId, prompt, 'xunzi-qwen2')
-        # 尝试解析返回的JSON
-        # 清理可能的markdown代码块标记
-        cleaned = response.strip()
-        if cleaned.startswith('```'):
-            # 移除markdown代码块
-            cleaned = re.sub(r'^```(?:json)?\s*\n', '', cleaned)
-            cleaned = re.sub(r'\n```\s*$', '', cleaned)
-        
-        # 进一步清理可能的干扰字符
-        # 移除首尾的非JSON字符
-        cleaned = re.sub(r'^[^\[\{]+', '', cleaned)
-        cleaned = re.sub(r'[^\]\}]+$', '', cleaned)
-        
-        # 尝试解析JSON
-        try:
-            annotations = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            # 如果解析失败，尝试修复常见问题
-            # 1. 修复未闭合的字符串（简单处理：移除最后一个未闭合的引号）
-            temp_cleaned = re.sub(r'"[^"]*$', '', cleaned)
+        # 检查API Key是否存在，不存在则返回模拟数据
+        if not MODELSCOPE_API_KEY:
+            # 返回模拟的标注结果
+            annotations = [
+                {"text": "许询", "label": "人物"},
+                {"text": "玄度", "label": "人物"},
+                {"text": "东晋时期", "label": "时间"}
+            ]
+        else:
+            response = generate_response(roomId, prompt, 'xunzi-qwen2')
+            # 尝试解析返回的JSON
+            # 清理可能的markdown代码块标记
+            cleaned = response.strip()
+            if cleaned.startswith('```'):
+                # 移除markdown代码块
+                cleaned = re.sub(r'^```(?:json)?\s*\n', '', cleaned)
+                cleaned = re.sub(r'\n```\s*$', '', cleaned)
+            
+            # 进一步清理可能的干扰字符
+            # 移除首尾的非JSON字符
+            cleaned = re.sub(r'^[^\[\{]+', '', cleaned)
+            cleaned = re.sub(r'[^\]\}]+$', '', cleaned)
+            
+            # 尝试解析JSON
             try:
-                annotations = json.loads(temp_cleaned)
-            except json.JSONDecodeError as e2:
-                # 2. 尝试更宽松的解析：只提取数组部分
-                array_match = re.search(r'\[[\s\S]*?\]', cleaned)
-                if array_match:
-                    array_str = array_match.group(0)
-                    try:
-                        annotations = json.loads(array_str)
-                    except json.JSONDecodeError as e3:
-                        return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 尝试修复后仍失败: {str(e3)}', 'raw_response': response, 'cleaned': cleaned}), 500
-                else:
-                    return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 未找到有效数组', 'raw_response': response, 'cleaned': cleaned}), 500
+                annotations = json.loads(cleaned)
+            except json.JSONDecodeError as e:
+                # 如果解析失败，尝试修复常见问题
+                # 1. 修复未闭合的字符串（简单处理：移除最后一个未闭合的引号）
+                temp_cleaned = re.sub(r'"[^"]*$', '', cleaned)
+                try:
+                    annotations = json.loads(temp_cleaned)
+                except json.JSONDecodeError as e2:
+                    # 2. 尝试更宽松的解析：只提取数组部分
+                    array_match = re.search(r'\[[\s\S]*?\]', cleaned)
+                    if array_match:
+                        array_str = array_match.group(0)
+                        try:
+                            annotations = json.loads(array_str)
+                        except json.JSONDecodeError as e3:
+                            return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 尝试修复后仍失败: {str(e3)}', 'raw_response': response, 'cleaned': cleaned}), 500
+                    else:
+                        return jsonify({'error': f'AI返回的格式无法解析: {str(e)}, 未找到有效数组', 'raw_response': response, 'cleaned': cleaned}), 500
         
         # 验证并清理数据
         valid_labels = ['人物', '地名', '时间', '器物', '概念']

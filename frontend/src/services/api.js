@@ -2,8 +2,8 @@
 // API 基础服务
 
 const USER_API_BASE = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
-const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || `${USER_API_BASE}/ai`;
-const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || `${USER_API_BASE}/seg`;
+const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || 'http://localhost:5004';
+const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || 'http://localhost:5003';
 
 /**
  * 通用 API 请求函数
@@ -26,7 +26,23 @@ const request = async (url, options = {}) => {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    
+    console.log('API Response Status:', response.status, 'for URL:', url);
+    console.log('API Response Headers:', response.headers);
+    
+    // 检查响应类型
+    const contentType = response.headers.get('content-type');
+    console.log('API Response Content-Type:', contentType);
+    
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      // 如果不是JSON，获取文本内容并记录
+      const text = await response.text();
+      console.error('API返回非JSON响应:', text);
+      throw new Error(`API返回非JSON响应: ${text.substring(0, 200)}...`);
+    }
     
     if (!response.ok) {
       throw new Error(data.error || data.message || `HTTP ${response.status}`);
