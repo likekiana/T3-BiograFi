@@ -614,6 +614,24 @@ app.get('/api/documents/:documentId/annotations', async (req, res) => {
     }
 });
 
+// 获取文档的关系标注列表
+app.get('/api/documents/:documentId/relations', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        const document = await DocumentModel.findById(documentId);
+        if (!document) {
+            return res.status(404).json({ success: false, error: '文档不存在' });
+        }
+        
+        // 从文档的relationAnnotations字段获取关系标注
+        const relations = document.relationAnnotations || [];
+        res.json({ success: true, relations });
+    } catch (error) {
+        console.error('获取关系标注错误:', error);
+        res.json({ success: true, relations: [] });
+    }
+});
+
 // 添加实体标注
 app.post('/api/documents/:documentId/annotations/entity', async (req, res) => {
     try {

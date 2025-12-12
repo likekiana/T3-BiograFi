@@ -66,8 +66,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 22 }}>
-          <button onClick={() => { /* reset to current user settings */ if (user && user.settings) setSettings({ theme: user.settings.theme || 'light', showHints: user.settings.showHints !== false }); }} style={{ padding: '8px 14px' }}>取消</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
           <button onClick={async () => { setCurrentLanguage(getCurrentLanguage()); const r = await handleSave(); if (r && r.success) { /* saved */ } else { /* error handled in handleSave */ } }} disabled={saving} style={{ padding: '8px 14px', background: 'var(--primary)', color: 'var(--primary-contrast)', border: 'none', borderRadius: 4 }}>{saving ? '保存中...' : '保存设置'}</button>
         </div>
       </div>

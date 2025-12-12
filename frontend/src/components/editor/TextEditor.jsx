@@ -211,21 +211,72 @@ const TextEditor = ({
   const createPreviewPages = useCallback((plainText) => {
     if (!plainText) return { pages: [], totalPages: 1 };
     
-    const { pages: textPages, totalPages } = splitTextIntoPages(plainText, true);
+    // 直接使用原始plainText，不经过splitTextIntoPages处理
+    const originalPlainText = plainText;
+    
+    // 计算每页可容纳的字符数（估算）
+    const contentWidth = PAGE_CONFIG.CONTENT_WIDTH;
+    const lineHeight = PAGE_CONFIG.FONT_SIZE * PAGE_CONFIG.LINE_HEIGHT;
+    const pageHeight = PAGE_CONFIG.HEIGHT - 2 * PAGE_CONFIG.VERTICAL_PADDING;
+    const linesPerPage = Math.floor(pageHeight / lineHeight);
+    const charsPerLine = Math.floor(contentWidth / (PAGE_CONFIG.FONT_SIZE * 0.6));
+    const charsPerPage = linesPerPage * charsPerLine;
+    
+    // 如果内容很短，只有一页
+    let textPages;
+    let totalPages;
+    
+    if (plainText.length <= charsPerPage) {
+      textPages = [plainText];
+      totalPages = 1;
+    } else {
+      // 按字符分割文本到各页，但保持原始文本不变
+      textPages = [];
+      let startIndex = 0;
+      
+      while (startIndex < plainText.length) {
+        let endIndex = Math.min(startIndex + charsPerPage, plainText.length);
+        
+        if (endIndex < plainText.length) {
+          // 尝试在段落结束处分页
+          const lastNewLine = plainText.lastIndexOf('\n\n', endIndex);
+          const lastPeriod = plainText.lastIndexOf('。', endIndex);
+          const lastComma = plainText.lastIndexOf('，', endIndex);
+          const lastSpace = plainText.lastIndexOf(' ', endIndex);
+          
+          // 优先在段落结束处分页
+          if (lastNewLine > startIndex + charsPerPage * 0.5) {
+            endIndex = lastNewLine + 2;
+          } else if (lastPeriod > startIndex + charsPerPage * 0.5) {
+            endIndex = lastPeriod + 1;
+          } else if (lastComma > startIndex + charsPerPage * 0.5) {
+            endIndex = lastComma + 1;
+          } else if (lastSpace > startIndex + charsPerPage * 0.5) {
+            endIndex = lastSpace + 1;
+          }
+        }
+        
+        const pageText = plainText.substring(startIndex, endIndex);
+        textPages.push(pageText);
+        startIndex = endIndex;
+      }
+      
+      totalPages = textPages.length;
+    }
     
     // 为每页创建带标注的HTML
     const pagesWithAnnotations = textPages.map((pageText, pageIndex) => {
       const container = document.createElement('div');
       container.className = 'annotated-text-container';
       
-      // 计算该页文本在整个文本中的位置
+      // 计算该页文本在整个文本中的位置 - 基于原始文本
       const pageStart = textPages.slice(0, pageIndex).reduce((sum, page) => sum + page.length, 0);
       const pageEnd = pageStart + pageText.length;
       
-      // 获取该页范围内的标注
+      // 获取该页范围内的标注 - 使用原始plainText验证
       const pageAnnotations = annotations
         .filter(ann => {
-          if (!validateAnnotation(ann, plainText)) return false;
+          if (!validateAnnotation(ann, originalPlainText)) return false;
           const overlapStart = Math.max(ann.start, pageStart);
           const overlapEnd = Math.min(ann.end, pageEnd);
           return overlapStart < overlapEnd;
@@ -249,6 +300,7 @@ const TextEditor = ({
           }
         }
         
+        // 确保标注文本与实际文本匹配
         const actualText = pageText.slice(annStart, annEnd);
         if (actualText.trim()) {
           const labelConfig = entityLabels.find(l => l.value === annotation.label);
@@ -304,27 +356,22 @@ const TextEditor = ({
     });
     
     return { pages: pagesWithAnnotations, totalPages };
-  }, [annotations, entityLabels, splitTextIntoPages, validateAnnotation]);
+  }, [annotations, entityLabels, validateAnnotation]);
 
   // 初始化分页
   useEffect(() => {
     const newContent = content || '';
     setText(newContent);
     
-    // 分割文本到页
+    // 分割文本到页 - 编辑模式和预览模式都使用带标注的内容
     const plainText = getPlainText(newContent);
     let newTotalPages = 1;
     let newPagesContent = [];
     
-    if (showPreviewInline) {
-      const previewResult = createPreviewPages(plainText);
-      newPagesContent = previewResult.pages;
-      newTotalPages = previewResult.totalPages;
-    } else {
-      const splitResult = splitTextIntoPages(newContent, false);
-      newPagesContent = splitResult.pages;
-      newTotalPages = splitResult.totalPages;
-    }
+    // 生成带标注的内容
+    const previewResult = createPreviewPages(plainText);
+    newPagesContent = previewResult.pages;
+    newTotalPages = previewResult.totalPages;
     
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
@@ -332,31 +379,26 @@ const TextEditor = ({
     if (currentPage > newTotalPages) {
       setCurrentPage(1);
     }
-  }, [content, showPreviewInline]);
+  }, [content, showPreviewInline, annotations]);
 
-  // 当文本或模式变化时更新分页
+  // 当文本、标注或模式变化时更新分页
   useEffect(() => {
     const plainText = getPlainText(text);
     let newTotalPages = 1;
     let newPagesContent = [];
     
-    if (showPreviewInline) {
-      const previewResult = createPreviewPages(plainText);
-      newPagesContent = previewResult.pages;
-      newTotalPages = previewResult.totalPages;
-    } else {
-      const splitResult = splitTextIntoPages(text, false);
-      newPagesContent = splitResult.pages;
-      newTotalPages = splitResult.totalPages;
-    }
+    // 生成带标注的内容
+    const previewResult = createPreviewPages(plainText);
+    newPagesContent = previewResult.pages;
+    newTotalPages = previewResult.totalPages;
     
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
-  }, [text, showPreviewInline]);
+  }, [text, showPreviewInline, annotations]);
 
   // 当当前页变化时，确保editorRef更新内容
   useEffect(() => {
-    if (!showPreviewInline && editorRef.current) {
+    if (editorRef.current) {
       const currentPageContent = pagesContent[currentPage - 1] || '';
       const currentHTML = editorRef.current.innerHTML;
       
@@ -365,7 +407,7 @@ const TextEditor = ({
         editorRef.current.innerHTML = currentPageContent;
       }
     }
-  }, [currentPage, pagesContent, showPreviewInline]);
+  }, [currentPage, pagesContent]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.feather) {
@@ -376,13 +418,22 @@ const TextEditor = ({
   const handleInput = (e) => {
     if (showPreviewInline) return;
     
-    const newText = e.currentTarget.innerHTML;
+    // 提取纯文本内容，忽略标注标签
+    const newHtml = e.currentTarget.innerHTML;
+    const newText = getPlainText(newHtml);
     updateContent(newText);
     
-    // 重新分割文本
-    const splitResult = splitTextIntoPages(newText, false);
-    setPagesContent(splitResult.pages);
-    setTotalPages(splitResult.totalPages);
+    // 重新生成分页内容，包括标注
+    if (showPreviewInline) {
+      const previewResult = createPreviewPages(newText);
+      setPagesContent(previewResult.pages);
+      setTotalPages(previewResult.totalPages);
+    } else {
+      // 编辑模式下，也使用带标注的内容
+      const previewResult = createPreviewPages(newText);
+      setPagesContent(previewResult.pages);
+      setTotalPages(previewResult.totalPages);
+    }
   };
 
   // 分页控制
@@ -638,8 +689,14 @@ const TextEditor = ({
     // 获取当前页内容
     const currentPageContent = pagesContent[currentPage - 1] || '';
     
+    // 生成带标注的HTML内容，用于编辑模式
+    const plainText = getPlainText(content);
+    const annotatedContent = showPreviewInline ? 
+      currentPageContent : 
+      createPreviewPages(plainText).pages[currentPage - 1] || '';
+    
     if (showPreviewInline) {
-      // 预览模式 - 显示当前页的标注内容
+      // 预览模式 - 显示当前页的标注内容，不可编辑
       return (
         <div className="page" style={pageStyle}>
           <div className="page-content-wrapper">
@@ -647,14 +704,14 @@ const TextEditor = ({
               className="editor-text-input preview-text"
               style={contentStyle}
               tabIndex={0}
-              dangerouslySetInnerHTML={{ __html: currentPageContent || '<div class="empty-preview">暂无内容</div>' }}
+              dangerouslySetInnerHTML={{ __html: annotatedContent || '<div class="empty-preview">暂无内容</div>' }}
             />
           </div>
         </div>
       );
     }
     
-    // 编辑模式 - 显示当前页内容
+    // 编辑模式 - 显示带标注的内容，可编辑
     return (
       <div className="page" style={pageStyle}>
         <div className="page-content-wrapper">
@@ -666,12 +723,12 @@ const TextEditor = ({
               }
               // 当ref变化时设置内容
               if (el && !el.innerHTML) {
-                el.innerHTML = currentPageContent;
+                el.innerHTML = annotatedContent;
               }
             }}
             contentEditable={!readOnly}
             onInput={handleInput}
-            className="editor-text-input contenteditable"
+            className="editor-text-input contenteditable with-annotations"
             suppressContentEditableWarning={true}
             data-placeholder={currentPage === 1 && !currentPageContent ? placeholder : ''}
             style={contentStyle}

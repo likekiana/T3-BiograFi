@@ -10,9 +10,9 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 解析结果
    */
-  async analyzeClassicalText(text, model = 'deepseek-chat') {
+  async analyzeClassicalText(text, model = 'deepseek-chat', roomId = 0) {
     try {
-      const result = await api.ai.analyzeText(text, model);
+      const result = await api.ai.analyzeText(text, model, roomId);
       return result.result || '';
     } catch (error) {
       console.error('古文解析失败:', error);
@@ -27,9 +27,9 @@ export const aiService = {
    * @param {string} model - 模型名称
    * @returns {Promise<string>} 答案
    */
-  async askQuestion(text, question, model = 'deepseek-chat') {
+  async askQuestion(text, question, model = 'deepseek-chat', roomId = 0) {
     try {
-      const result = await api.ai.askQuestion(text, question, model);
+      const result = await api.ai.askQuestion(text, question, model, roomId);
       return result.result || '';
     } catch (error) {
       console.error('古文答疑失败:', error);
@@ -43,17 +43,17 @@ export const aiService = {
    * @param {string} model - 使用的模型
    * @returns {Promise<Array>} 标注结果
    */
-  async autoAnnotateEntities(text, model = 'xunzi-qwen2') {
+  async autoAnnotateEntities(text, model = 'xunzi-qwen2', roomId = 0) {
     try {
       console.log('发送自动标注请求，文本长度:', text.length, '模型:', model);
       
       // 对于长文本，进行分块处理
       if (text.length > 500) {
         console.log('文本过长，启用分块处理');
-        return await this.autoAnnotateLongText(text, model);
+        return await this.autoAnnotateLongText(text, model, 500, 100, roomId);
       }
       
-      const result = await api.ai.autoAnnotate(text, model);
+      const result = await api.ai.autoAnnotate(text, model, roomId);
       console.log('AI 返回结果:', result);
       
       if (!result || !result.annotations) {
@@ -85,7 +85,7 @@ export const aiService = {
    * @param {number} overlap - 重叠字符数，默认100字符
    * @returns {Promise<Array>} 标注结果
    */
-  async autoAnnotateLongText(text, model = 'xunzi-qwen2', chunkSize = 500, overlap = 100) {
+  async autoAnnotateLongText(text, model = 'xunzi-qwen2', chunkSize = 500, overlap = 100, roomId = 0) {
     try {
       console.log(`开始分块处理长文本，总长度: ${text.length}, 分块大小: ${chunkSize}, 重叠: ${overlap}`);
       
@@ -191,7 +191,7 @@ export const aiService = {
       if (chunks.length === 0) {
         console.log('没有创建任何分块，处理前500字符');
         const shortText = text.substring(0, Math.min(500, text.length));
-        const result = await api.ai.autoAnnotate(shortText, model);
+        const result = await api.ai.autoAnnotate(shortText, model, roomId);
         return result?.annotations || [];
       }
       
@@ -210,7 +210,7 @@ export const aiService = {
             await new Promise(resolve => setTimeout(resolve, 200));
           }
           
-          const result = await api.ai.autoAnnotate(chunk.text, model);
+          const result = await api.ai.autoAnnotate(chunk.text, model, roomId);
           
           if (result && result.annotations) {
             const adjustedAnnotations = result.annotations.map(ann => ({
@@ -253,7 +253,7 @@ export const aiService = {
    * @param {AbortSignal} signal - 取消信号
    * @returns {Promise<Array>} 标注结果
    */
-  async autoAnnotateEntitiesSafe(text, model = 'xunzi-qwen2', onProgress = null, signal = null) {
+  async autoAnnotateEntitiesSafe(text, model = 'xunzi-qwen2', onProgress = null, signal = null, roomId = 0) {
     try {
       console.log('安全版本自动标注，文本长度:', text.length, '模型:', model);
       
@@ -265,11 +265,11 @@ export const aiService = {
       // 对于短文本，直接调用原方法
       if (text.length <= 500) {
         if (onProgress) onProgress(1, 1);
-        return await this.autoAnnotateEntities(text, model);
+        return await this.autoAnnotateEntities(text, model, roomId);
       }
       
       // 使用小分块处理（500字符）
-      const result = await this.autoAnnotateLongText(text, model, 500, 100);
+      const result = await this.autoAnnotateLongText(text, model, 500, 100, roomId);
       
       if (onProgress) onProgress(1, 1);
       return result;
@@ -330,7 +330,7 @@ export const aiService = {
    * @param {string} model - 使用的模型
    * @returns {Promise<Array>} 关系标注结果
    */
-  async autoAnnotateRelations(text, entityAnnotations, model = 'xunzi-qwen2') {
+  async autoAnnotateRelations(text, entityAnnotations, model = 'xunzi-qwen2', roomId = 0) {
     try {
       console.log('发送自动关系标注请求，实体数量:', entityAnnotations.length, '模型:', model);
       
@@ -378,7 +378,7 @@ ${entitiesInfo}
 
       
       // 调用AI服务
-      const result = await api.ai.askQuestion(text, prompt, model);
+      const result = await api.ai.askQuestion(text, prompt, model, roomId);
       console.log('AI关系标注返回结果:', result);
       
       // 提取JSON结果

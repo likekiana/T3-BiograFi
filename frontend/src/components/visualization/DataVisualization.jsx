@@ -298,6 +298,7 @@ const DataVisualization = () => {
                 annotations={documentData.annotations}
                 filters={filters}
                 content={documentData.content}
+                documentId={documentData.documentId}
               />
             )}
             {activeTab === 'locations' && (

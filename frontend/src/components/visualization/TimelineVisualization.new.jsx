@@ -285,14 +285,12 @@ const TimelineVisualization = ({ annotations, filters, content, documentId, isPr
 
   // 处理事件点击，显示详情
   const handleEventClick = (event, index) => {
-    console.log('Event clicked:', event.id, 'Index:', index);
     setSelectedEvent({
       ...event,
       position: index + 1,
       totalEvents: timelineEvents.length
     });
     setShowDetail(true);
-    console.log('showDetail set to:', true);
   };
 
   return (
@@ -411,14 +409,12 @@ const TimelineVisualization = ({ annotations, filters, content, documentId, isPr
       </div>
 
       {/* 事件详情模态框 */}
-      {console.log('Rendering EventDetailView:', showDetail, selectedEvent)}
       {showDetail && selectedEvent && (
         <EventDetailView
           event={selectedEvent}
           characterName={characterName}
           documentId={documentId}
           onClose={() => {
-            console.log('Closing EventDetailView');
             setShowDetail(false);
             setSelectedEvent(null);
           }}

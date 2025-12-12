@@ -199,24 +199,43 @@ export const documentAPI = {
 
 // AI 服务 API
 export const aiAPI = {
-  async analyzeText(text, model = 'xunzi-qwen2') {
+  async analyzeText(text, model = 'xunzi-qwen2', roomId = 0) {
     return request(`${AI_API_BASE}/api/analyze`, {
       method: 'POST',
-      body: { text, model },
+      body: { text, model, roomId },
     });
   },
 
-  async askQuestion(text, question, model = 'xunzi-qwen2') {
+  async askQuestion(text, question, model = 'xunzi-qwen2', roomId = 0) {
     return request(`${AI_API_BASE}/api/qa`, {
       method: 'POST',
-      body: { text, question, model },
+      body: { text, question, model, roomId },
     });
   },
 
-  async autoAnnotate(text) {
+  async autoAnnotate(text, model = 'xunzi-qwen2', roomId = 0) {
     return request(`${AI_API_BASE}/api/auto-annotate`, {
       method: 'POST',
-      body: { text },
+      body: { text, model, roomId },
+    });
+  },
+  
+  // 聊天历史管理
+  async getChatHistory(roomId) {
+    return request(`${AI_API_BASE}/api/chat-history/${roomId}`, {
+      method: 'GET',
+    });
+  },
+  
+  async clearChatHistory(roomId) {
+    return request(`${AI_API_BASE}/api/chat-history/${roomId}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  async clearAllChatHistory() {
+    return request(`${AI_API_BASE}/api/chat-history`, {
+      method: 'DELETE',
     });
   },
 };

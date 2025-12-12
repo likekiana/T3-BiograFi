@@ -6,12 +6,9 @@ import Modal from '../common/Modal';
 import '../../styles/components/ClassicalAnalysis.css';
 
 const ClassicalAnalysis = ({ content, documentId }) => {
-  // 根据documentId生成唯一的localStorage键名
-  const getUniqueKey = (baseKey) => {
-    // 使用documentId作为唯一标识
-    const uniqueId = documentId || 'empty';
-    return `${baseKey}_${uniqueId}`;
-  };
+  // 使用简单直接的方式生成localStorage键名
+  const QA_HISTORY_KEY = `qa_history_${documentId || 'default'}`;
+  const ANALYSIS_RESULT_KEY = `analysis_result_${documentId || 'default'}`;
   
   const [analysisResult, setAnalysisResult] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
@@ -21,18 +18,19 @@ const ClassicalAnalysis = ({ content, documentId }) => {
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [selectedModel, setSelectedModel] = useState('xunzi-qwen2');
   
-  // 当content变化时，读取对应的缓存
+  // 组件加载时，从localStorage读取历史记录
   useEffect(() => {
-    const qaHistoryKey = getUniqueKey('classical_analysis_qa_history');
-    const analysisResultKey = getUniqueKey('classical_analysis_result');
+    console.log('Loading history for documentId:', documentId);
     
     // 读取对话历史
-    const savedHistory = localStorage.getItem(qaHistoryKey);
+    const savedHistory = localStorage.getItem(QA_HISTORY_KEY);
     if (savedHistory) {
       try {
-        setQaHistory(JSON.parse(savedHistory));
+        const parsedHistory = JSON.parse(savedHistory);
+        console.log('Loaded history:', parsedHistory);
+        setQaHistory(parsedHistory);
       } catch (error) {
-        console.error('Failed to parse saved QA history:', error);
+        console.error('Failed to parse QA history:', error);
         setQaHistory([]);
       }
     } else {
@@ -40,30 +38,28 @@ const ClassicalAnalysis = ({ content, documentId }) => {
     }
     
     // 读取解析结果
-    const savedResult = localStorage.getItem(analysisResultKey);
+    const savedResult = localStorage.getItem(ANALYSIS_RESULT_KEY);
     if (savedResult) {
-      try {
-        setAnalysisResult(savedResult);
-      } catch (error) {
-        console.error('Failed to parse saved analysis result:', error);
-        setAnalysisResult('');
-      }
+      setAnalysisResult(savedResult);
     } else {
       setAnalysisResult('');
     }
-  }, [content]);
+  }, [documentId]);
   
-  // 将对话历史保存到localStorage
+  // 每当qaHistory变化时，立即保存到localStorage
   useEffect(() => {
-    const qaHistoryKey = getUniqueKey('classical_analysis_qa_history');
-    localStorage.setItem(qaHistoryKey, JSON.stringify(qaHistory));
-  }, [qaHistory, content]);
+    if (qaHistory.length > 0) {
+      console.log('Saving history for documentId:', documentId, 'with', qaHistory.length, 'entries');
+      localStorage.setItem(QA_HISTORY_KEY, JSON.stringify(qaHistory));
+    }
+  }, [qaHistory, documentId]);
   
-  // 将解析结果保存到localStorage
+  // 每当analysisResult变化时，立即保存到localStorage
   useEffect(() => {
-    const analysisResultKey = getUniqueKey('classical_analysis_result');
-    localStorage.setItem(analysisResultKey, analysisResult);
-  }, [analysisResult, content]);
+    if (analysisResult) {
+      localStorage.setItem(ANALYSIS_RESULT_KEY, analysisResult);
+    }
+  }, [analysisResult, documentId]);
 
   const models = aiService.getAvailableModels();
 
@@ -82,7 +78,8 @@ const ClassicalAnalysis = ({ content, documentId }) => {
     setAnalysisResult('');
 
     try {
-      const result = await aiService.analyzeClassicalText(content, model);
+      // 使用documentId作为roomId，确保聊天历史能正确保存
+      const result = await aiService.analyzeClassicalText(content, model, documentId);
       setAnalysisResult(result);
     } catch (error) {
       console.error('古文解析失败:', error);
@@ -111,7 +108,8 @@ const ClassicalAnalysis = ({ content, documentId }) => {
     setAnswering(true);
 
     try {
-      const answer = await aiService.askQuestion(content, currentQuestion, model);
+      // 使用documentId作为roomId，确保聊天历史能正确保存
+      const answer = await aiService.askQuestion(content, currentQuestion, model, documentId);
       
       const newQa = {
         question: currentQuestion,

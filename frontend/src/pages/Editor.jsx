@@ -12,8 +12,13 @@ import { t } from '../utils/language';
 import { debounce } from '../utils';
 import '../styles/pages/Editor.css';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useProjects } from '../hooks/useProjects';
+import { documentService } from '../services/documentService';
 
-const Editor = ({ document: propDoc, project, onBack, onSave }) => {
+const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { projects, getProject } = useProjects();
   const {
     updateDocument,
     deleteDocument,
@@ -25,7 +30,8 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
     deleteRelationAnnotation,
     loading: docsLoading,
     error: docsError,
-    getDocument
+    getDocument,
+    documents
   } = useDocuments();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('entity');
@@ -38,6 +44,8 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   const [saveStatus, setSaveStatus] = useState('');
   const [lastSaved, setLastSaved] = useState('');
   const [currentDoc, setCurrentDoc] = useState(null);
+  const [currentProject, setCurrentProject] = useState(null);
+  const [loading, setLoading] = useState(false);
   const textareaRef = useRef(null);
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showFindOptions, setShowFindOptions] = useState(false);
@@ -63,6 +71,55 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
 
   // 检查是否在浏览器环境中
   const isBrowser = typeof window !== 'undefined';
+
+  // 根据路由参数或props加载文档
+  useEffect(() => {
+    const loadDocument = async () => {
+      setLoading(true);
+      try {
+        let doc = propDoc;
+        let proj = propProject;
+
+        // 如果没有通过props传入文档，尝试从路由参数加载
+        if (!doc && id) {
+          // 从documents数组中查找文档
+          doc = documents.find(d => d.id === id);
+          if (!doc) {
+            // 如果documents数组中没有，尝试通过API获取
+            doc = await getDocument(id);
+          }
+        }
+
+        if (doc) {
+          setCurrentDoc(doc);
+          setDocumentName(doc.name || '');
+          setContent(doc.content || '');
+          setAuthor(doc.author || user?.username || '');
+
+          // 获取关联的项目
+          if (!proj && doc.projectId) {
+            proj = getProject(doc.projectId);
+            setCurrentProject(proj);
+          } else if (proj) {
+            setCurrentProject(proj);
+          }
+
+          // 加载实体和关系标注
+          const entities = await getEntityAnnotations(doc.id);
+          setAnnotations(entities);
+
+          const relations = await getRelationAnnotations(doc.id);
+          setRelationAnnotations(relations);
+        }
+      } catch (error) {
+        console.error('加载文档失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDocument();
+  }, [id, propDoc, propProject, documents, getDocument, getEntityAnnotations, getRelationAnnotations, user, projects, getProject]);
   
   // 获取当前选区
   const getCurrentSelection = () => {
@@ -155,8 +212,6 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
     }
   }, [history, historyIndex]);
 
-  const navigate = useNavigate();
-  const { id: urlDocId } = useParams();
   const featherRendered = useRef(false);
 
   const { leftWidth, dividerProps } = ResizableDivider({
@@ -205,8 +260,8 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
       loadRelationAnnotations();
     }
     // 从URL参数加载文档
-    else if (urlDocId) {
-      const docFromCache = getDocument(urlDocId);
+    else if (id) {
+      const docFromCache = getDocument(id);
       if (docFromCache) {
         setCurrentDoc(docFromCache);
         setContent(docFromCache.content || '');
@@ -216,7 +271,7 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
         loadRelationAnnotations();
       }
     }
-  }, [propDoc, urlDocId, getDocument]);
+  }, [propDoc, id, getDocument]);
 
   // 防抖保存
   const debouncedSave = debounce(async (newContent, newDocName, newAuthor) => {
@@ -247,10 +302,10 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
 
   // 执行保存
   const performSave = async (saveContent, saveDocName, saveAuthor) => {
-    if (!doc) return;
+    if (!currentDoc) return;
 
     try {
-      await updateDocument(doc.id, {
+      await updateDocument(currentDoc.id, {
         content: saveContent,
         name: saveDocName,
         author: saveAuthor
@@ -758,9 +813,9 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   // ========== 其他原有函数 ==========
   
   const loadEntityAnnotations = async () => {
-    if (!doc) return;
+    if (!currentDoc) return;
     try {
-      const entityAnnotations = await getEntityAnnotations(doc.id);
+      const entityAnnotations = await getEntityAnnotations(currentDoc.id);
       setAnnotations(entityAnnotations);
     } catch (error) {
       console.error('加载实体标注失败:', error);
@@ -768,9 +823,9 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   };
 
   const loadRelationAnnotations = async () => {
-    if (!doc) return;
+    if (!currentDoc) return;
     try {
-      const relations = await getRelationAnnotations(doc.id);
+      const relations = await getRelationAnnotations(currentDoc.id);
       setRelationAnnotations(relations);
     } catch (error) {
       console.error('加载关系标注失败:', error);
@@ -778,46 +833,97 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   };
 
   const handleAddAnnotation = async (annotation) => {
-    if (!doc) return;
+    if (!currentDoc) return;
     try {
-      await addEntityAnnotation(doc.id, annotation);
-      await loadEntityAnnotations();
-      await loadRelationAnnotations();
+      // 1. 先更新本地状态，实现即时界面更新
+      const newAnnotations = [...annotations, annotation];
+      setAnnotations(newAnnotations);
       addToHistory();
+      
+      // 2. 然后调用API保存到服务器
+      await addEntityAnnotation(currentDoc.id, annotation);
+      // 3. 刷新数据确保与服务器同步
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     } catch (error) {
       console.error('添加实体标注失败:', error);
+      // 4. 如果API失败，重新加载数据恢复正确状态
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     }
   };
 
   const handleDeleteAnnotation = async (annotation) => {
-    if (!doc || !annotation) return;
+    if (!currentDoc || !annotation) return;
     try {
-      await deleteEntityAnnotation(doc.id, annotation);
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      // 1. 先更新本地状态，实现即时界面更新
+      const newAnnotations = annotations.filter(ann => 
+        ann.id !== annotation.id
+      );
+      setAnnotations(newAnnotations);
       addToHistory();
+      
+      // 2. 然后调用API保存到服务器
+      await deleteEntityAnnotation(currentDoc.id, annotation);
+      // 3. 刷新数据确保与服务器同步
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     } catch (error) {
       console.error('删除实体标注失败:', error);
+      // 4. 如果API失败，重新加载数据恢复正确状态
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
       alert(`删除标注失败: ${error.message || '未知错误'}`);
     }
   };
 
-  const handleUpdateAnnotation = async (oldAnnotation, newAnnotation) => {
-    if (!doc || !oldAnnotation || !newAnnotation) return;
+  // 清除全部标注
+  const handleClearAllAnnotations = async () => {
+    if (!currentDoc) return;
     try {
-      await deleteEntityAnnotation(doc.id, oldAnnotation);
-      await addEntityAnnotation(doc.id, newAnnotation);
-      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+      // 假设API支持批量删除，或者直接清空所有标注
+      // 这里我们先删除所有实体标注，然后重新加载数据
+      // 注意：这是一个优化方案，避免在循环中多次调用API
+      const doc = await documentService.getDocumentById(currentDoc.id);
+      if (doc && Array.isArray(doc.entityAnnotations) && doc.entityAnnotations.length > 0) {
+        // 循环删除所有标注
+        const deletePromises = doc.entityAnnotations.map(annotation => 
+          deleteEntityAnnotation(currentDoc.id, annotation)
+        );
+        await Promise.all(deletePromises);
+        // 重新加载数据，确保状态同步
+        await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
+        addToHistory();
+      }
+    } catch (error) {
+      console.error('清除全部标注失败:', error);
+      alert(`清除标注失败: ${error.message || '未知错误'}`);
+    }
+  };
+
+  const handleUpdateAnnotation = async (oldAnnotation, newAnnotation) => {
+    if (!currentDoc || !oldAnnotation || !newAnnotation) return;
+    try {
+      // 1. 先更新本地状态，实现即时界面更新
+      const newAnnotations = annotations.map(ann => 
+        ann.id === oldAnnotation.id ? newAnnotation : ann
+      );
+      setAnnotations(newAnnotations);
       addToHistory();
+      
+      // 2. 然后调用API保存到服务器
+      await deleteEntityAnnotation(currentDoc.id, oldAnnotation);
+      await addEntityAnnotation(currentDoc.id, newAnnotation);
+      // 3. 刷新数据确保与服务器同步
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
     } catch (error) {
       console.error('更新实体标注失败:', error);
+      // 4. 如果API失败，重新加载数据恢复正确状态
+      await Promise.all([loadEntityAnnotations(), loadRelationAnnotations()]);
       alert(`更新标注失败: ${error.message || '未知错误'}`);
     }
   };
 
   const handleAddRelation = async (relation) => {
-    if (!doc) return;
+    if (!currentDoc) return;
     try {
-      await addRelationAnnotation(doc.id, relation);
+      await addRelationAnnotation(currentDoc.id, relation);
       await loadRelationAnnotations();
       addToHistory();
     } catch (error) {
@@ -827,9 +933,9 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   };
 
   const handleDeleteRelation = async (relationId) => {
-    if (!doc) return;
+    if (!currentDoc) return;
     try {
-      await deleteRelationAnnotation(doc.id, relationId);
+      await deleteRelationAnnotation(currentDoc.id, relationId);
       await loadRelationAnnotations();
       addToHistory();
     } catch (error) {
@@ -966,7 +1072,7 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
     );
   }
 
-  if (!doc) {
+  if (!currentDoc) {
     return (
       <div className="editor-container">
         <div className="editor-error">
@@ -991,12 +1097,13 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
       case 'entity':
         return (
           <EntityAnnotator
-            documentId={doc.id}
+            documentId={currentDoc.id}
             content={content}
             annotations={annotations}
             onAddAnnotation={handleAddAnnotation}
             onDeleteAnnotation={handleDeleteAnnotation}
             onUpdateAnnotation={handleUpdateAnnotation}
+            onClearAllAnnotations={handleClearAllAnnotations}
             textareaRef={textareaRef}
             readOnly={readOnly}
           />
@@ -1004,8 +1111,8 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
       case 'relation':
         return (
           <RelationAnnotator
-            documentId={doc.id}
-            documentName={doc.name}
+            documentId={currentDoc.id}
+            documentName={currentDoc.name}
             entityAnnotations={annotations}
             relations={relationAnnotations}
             onAddRelation={handleAddRelation}
@@ -1015,7 +1122,7 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
           />
         );
       case 'analysis':
-        return <ClassicalAnalysis content={content} />;
+        return <ClassicalAnalysis content={content} documentId={currentDoc?.id} />;
       default:
         return null;
     }
@@ -1026,7 +1133,7 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
       <div className="editor-header">
         <div className="header-top">
           <h2 className="editor-title">
-            {doc.name} - {t('document_editor')}
+            {currentDoc.name} - {t('document_editor')}
           </h2>
 
           {/* 可视化按钮 */}
@@ -1036,9 +1143,9 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
               const documentData = {
                 content: content,
                 annotations: annotations,
-                title: doc.name,
+                title: currentDoc.name,
                 author: author,
-                documentId: doc.id
+                documentId: currentDoc.id
               };
               localStorage.setItem('currentDocument', JSON.stringify(documentData));
               navigate('/visualization');
@@ -1191,7 +1298,7 @@ const Editor = ({ document: propDoc, project, onBack, onSave }) => {
               placeholder={getEditorPlaceholder(activeTab)}
               textareaRef={textareaRef}
               readOnly={readOnly}
-              documentId={doc?.id}
+              documentId={currentDoc?.id}
               annotations={annotations}
               onAddAnnotation={handleAddAnnotation}
               onDeleteAnnotation={handleDeleteAnnotation}

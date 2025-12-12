@@ -393,14 +393,35 @@ export const documentService = {
   },
 
   async getRelationAnnotations(documentId) {
-    const doc = await this.getDocumentById(documentId);
-    if (!doc || !Array.isArray(doc.relationAnnotations)) return [];
-    return doc.relationAnnotations.map((relation) => ({
-      ...relation,
-      relationName: relation.relationName || '',
-      entity1: normalizeRelationEntity(relation.entity1 || {}, doc.content || ''),
-      entity2: normalizeRelationEntity(relation.entity2 || {}, doc.content || '')
-    }));
+    try {
+      // 调用后端API获取关系标注（使用authenticatedRequest确保认证）
+      const result = await api.annotations.list(documentId);
+      // 注意：这里复用了实体标注的API端点，因为关系标注存储在文档本身的relationAnnotations字段中
+      // 我们通过获取文档来获取关系标注
+      const doc = await this.getDocumentById(documentId);
+      if (doc) {
+        const relations = Array.isArray(doc.relationAnnotations) ? doc.relationAnnotations : [];
+        
+        return relations.map((relation) => ({
+          ...relation,
+          relationName: relation.relationName || '',
+          entity1: normalizeRelationEntity(relation.entity1 || {}, doc.content || ''),
+          entity2: normalizeRelationEntity(relation.entity2 || {}, doc.content || '')
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('获取关系标注失败，使用本地存储:', error);
+      // 降级到本地存储
+      const doc = await this.getDocumentById(documentId);
+      if (!doc || !Array.isArray(doc.relationAnnotations)) return [];
+      return doc.relationAnnotations.map((relation) => ({
+        ...relation,
+        relationName: relation.relationName || '',
+        entity1: normalizeRelationEntity(relation.entity1 || {}, doc.content || ''),
+        entity2: normalizeRelationEntity(relation.entity2 || {}, doc.content || '')
+      }));
+    }
   },
 
   // 本地存储方法

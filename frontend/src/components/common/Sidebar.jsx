@@ -7,8 +7,6 @@ import { t } from '../../utils/language';
 import { 
   Home, 
   FileText, 
-  Edit, 
-  BarChart2, 
   User, 
   Settings,
   ChevronsDown,
@@ -55,8 +53,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
       children: projectItems,
       icon: FileText
     },
-    { name: 'editor', label: '编辑器', path: '/editor', icon: Edit },
-    { name: 'visualization', label: '可视化', path: '/visualization', icon: BarChart2 },
     { name: 'profile', label: '个人资料', path: '/profile', icon: User },
     { name: 'settings', label: '设置', path: '/settings', icon: Settings }
   ];

@@ -10,6 +10,7 @@ const EntityAnnotator = ({
   onAddAnnotation,
   onDeleteAnnotation,
   onUpdateAnnotation,
+  onClearAllAnnotations,
   textareaRef,
   readOnly = false
 }) => {
@@ -312,14 +313,36 @@ const EntityAnnotator = ({
     let start = -1;
     let end = -1;
     
-    start = plainText.indexOf(selectedText);
-    if (start !== -1) {
-      end = start + selectedText.length;
-    } else {
-      const textBeforeSelection = plainText.slice(0, Math.min(1000, plainText.length));
-      start = textBeforeSelection.length;
-      end = start + selectedText.length;
-    }
+    // 改进的位置计算：使用精确的文本匹配
+    const selectionStartOffset = range.startOffset;
+    const selectionEndOffset = range.endOffset;
+    const parentNode = range.startContainer;
+    
+    // 计算相对于整个文本的位置
+    const getCharOffset = (node, offset) => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      const textContent = tempDiv.textContent || tempDiv.innerText || '';
+      
+      // 尝试找到选中文本在全文中的位置
+      const matchIndex = textContent.indexOf(selectedText);
+      if (matchIndex !== -1) {
+        return {
+          start: matchIndex,
+          end: matchIndex + selectedText.length
+        };
+      }
+      
+      // 如果找不到精确匹配，使用近似位置
+      return {
+        start: 0,
+        end: Math.min(selectedText.length, textContent.length)
+      };
+    };
+    
+    const offsets = getCharOffset(parentNode, selectionStartOffset);
+    start = offsets.start;
+    end = offsets.end;
     
     if (start < 0 || end <= start) {
       start = 0;
@@ -749,15 +772,21 @@ const EntityAnnotator = ({
   };
 
   // 快速清除所有标注
-  const handleClearAllAnnotations = () => {
+  const handleClearAllAnnotations = async () => {
     if (annotations.length === 0 || readOnly) return;
     
     if (window.confirm(`确定要删除全部 ${annotations.length} 个标注吗？`)) {
-      annotations.forEach((annotation) => {
-        if (onDeleteAnnotation) {
-          onDeleteAnnotation(annotation);
+      if (onClearAllAnnotations) {
+        // 调用父组件提供的清除全部标注方法
+        await onClearAllAnnotations();
+      } else {
+        // 降级方案：使用原有方式逐个删除
+        for (let i = annotations.length - 1; i >= 0; i--) {
+          if (onDeleteAnnotation) {
+            await onDeleteAnnotation(annotations[i]);
+          }
         }
-      });
+      }
     }
   };
 
@@ -867,6 +896,36 @@ const EntityAnnotator = ({
               })}
             </div>
           </div>
+          
+          {/* 添加删除标注按钮 */}
+          {isEditing && (
+            <div className="quick-actions-footer">
+              <button
+                className="delete-annotation-quick-btn"
+                onClick={() => {
+                  if (editingAnnotation) {
+                    handleDeleteAnnotation(editingAnnotation);
+                  }
+                }}
+                title="删除当前标注"
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  margin: '10px auto 0'
+                }}
+              >
+                <span>删除标注</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1256,32 +1315,6 @@ const EntityAnnotator = ({
           </div>
           <div className="annotation-list" ref={annotatedTextRef}>
             {renderAnnotationList()}
-          </div>
-          
-          <div className="preview-header text-preview-header">
-            <h4>文本预览（带标注）</h4>
-            <div className="legend">
-              {entityLabels.map(label => (
-                <span key={label.value} className="legend-item">
-                  <span 
-                    className="legend-color" 
-                    style={{ backgroundColor: label.color }}
-                  ></span>
-                  {label.label}
-                  {label.isCustom && <span className="custom-dot">•</span>}
-                </span>
-              ))}
-            </div>
-          </div>
-          
-          <div 
-            className="annotated-text contenteditable"
-            contentEditable={!readOnly}
-            onInput={handlePreviewInput}
-            onKeyDown={handlePreviewKeyDown}
-            suppressContentEditableWarning={true}
-          >
-            {renderAnnotatedText()}
           </div>
         </div>
       </div>

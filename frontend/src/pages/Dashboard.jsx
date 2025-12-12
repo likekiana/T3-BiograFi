@@ -5,11 +5,16 @@ import DocumentList from '../components/documents/DocumentList';
 import Editor from './Editor';
 import Modal from '../components/common/Modal';
 import { useAuth } from '../hooks/useAuth';
+import { useProjects } from '../hooks/useProjects';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { t } from '../utils/language';
 import '../styles/pages/Dashboard.css';
 
 const Dashboard = () => {
   const { user, updateUser } = useAuth();
+  const { projects, getProject } = useProjects();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('home'); // 'home', 'documents', 'editor'
   const [currentProject, setCurrentProject] = useState(null);
   const [currentDocument, setCurrentDocument] = useState(null);
@@ -31,24 +36,50 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  // 根据路由路径设置当前视图
+  useEffect(() => {
+    const path = location.pathname;
+    
+    if (path === '/projects') {
+      setCurrentView('home');
+      setCurrentProject(null);
+      setCurrentDocument(null);
+    } else if (path.startsWith('/project/')) {
+      const projectId = path.split('/')[2];
+      const project = getProject(projectId);
+      if (project) {
+        setCurrentProject(project);
+        setCurrentView('documents');
+        setCurrentDocument(null);
+      } else {
+        // 如果项目不存在，返回项目列表
+        navigate('/projects');
+      }
+    }
+  }, [location.pathname, projects, getProject, navigate]);
+
   const handleOpenProject = (project) => {
     setCurrentProject(project);
     setCurrentView('documents');
+    navigate(`/project/${project.id}`);
   };
 
   const handleOpenDocument = (document) => {
     setCurrentDocument(document);
     setCurrentView('editor');
+    navigate(`/editor/${document.id}`);
   };
 
   const handleBackToProjects = () => {
     setCurrentProject(null);
     setCurrentView('home');
+    navigate('/projects');
   };
 
   const handleBackToDocuments = () => {
     setCurrentDocument(null);
     setCurrentView('documents');
+    navigate(`/project/${currentProject.id}`);
   };
 
   const handleSaveDocument = () => {

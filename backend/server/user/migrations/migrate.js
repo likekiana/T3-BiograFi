@@ -14,7 +14,8 @@ const dbConfig = {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'ianct_chinese_user',
     charset: 'utf8mb4',
-    timezone: '+08:00'
+    timezone: '+08:00',
+    multipleStatements: true // 启用多语句支持
 };
 
 async function migrate() {
@@ -29,14 +30,18 @@ async function migrate() {
         let sqlFiles = fs.readdirSync(migrationsDir)
             .filter(file => file.endsWith('.sql'));
         
-        // 确保init_database.sql首先执行，然后按文件名排序其他文件
-        const initFile = sqlFiles.find(file => file === 'init_database.sql');
-        if (initFile) {
-            sqlFiles = sqlFiles.filter(file => file !== initFile);
+        // 排除init_database.sql，只执行优化脚本
+        // 因为init_database.sql会删除并重新创建所有表，我们只需要优化现有结构
+        sqlFiles = sqlFiles.filter(file => file !== 'init_database.sql');
+        
+        // 确保optimize_database.sql最后执行，或者按需要排序
+        const optimizeFile = sqlFiles.find(file => file === 'optimize_database.sql');
+        if (optimizeFile) {
+            sqlFiles = sqlFiles.filter(file => file !== optimizeFile);
             sqlFiles.sort();
-            sqlFiles.unshift(initFile); // 将init_database.sql放在第一位
+            sqlFiles.push(optimizeFile); // 将optimize_database.sql放在最后
         } else {
-            sqlFiles.sort(); // 如果没有init_database.sql，就按默认排序
+            sqlFiles.sort(); // 如果没有optimize_database.sql，就按默认排序
         }
 
         console.log(`📋 发现 ${sqlFiles.length} 个迁移文件`);

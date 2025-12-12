@@ -14,6 +14,23 @@ app = Flask(__name__)
 CORS(app) 
 
 # 导入配置
+
+# 全局聊天历史记录存储，使用字典模拟Java的HashMap
+# 键：roomId（整数类型），值：聊天消息列表
+chat_histories = {}
+
+class ChatMessage:
+    """聊天消息类，模拟Java的ChatMessage对象"""
+    def __init__(self, role, content):
+        self.role = role
+        self.content = content
+        
+    def to_dict(self):
+        """转换为字典格式，用于API请求"""
+        return {
+            'role': self.role,
+            'content': self.content
+        }
 try:
     from config import (DEEPSEEK_API_KEY, DEEPSEEK_API_URL, DEEPSEEK_MODEL, 
                         MODELSCOPE_API_KEY, MODELSCOPE_API_URL, XUNZI_MODEL,
@@ -38,9 +55,14 @@ else:
     DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', DEEPSEEK_API_KEY)
     MODELSCOPE_API_KEY = os.environ.get('MODELSCOPE_API_KEY', MODELSCOPE_API_KEY)
 
-def generate_response(prompt, model=None):
+def generate_response(roomId, prompt, model=None):
     """
     调用 AI API 生成响应，支持 DeepSeek 和 荀子古汉语模型
+    
+    Args:
+        roomId: 聊天室ID，用于管理聊天历史
+        prompt: 用户输入的提示词
+        model: 使用的AI模型，默认为'xunzi-qwen2'
     """
     model = model or 'xunzi-qwen2'
     
@@ -74,9 +96,9 @@ def generate_response(prompt, model=None):
     
     # 古汉语专家系统提示
     if model == 'xunzi-qwen2':
-        messages.append({
-            'role': 'system',
-            'content': '''你是一位精通古汉语的资深学者，专门研究先秦两汉至明清的古典文献。你具备以下专业能力：
+        system_message = ChatMessage(
+            role='system',
+            content='''你是一位精通古汉语的资深学者，专门研究先秦两汉至明清的古典文献。你具备以下专业能力：
 1. 深厚的古汉语功底，熟悉文言文语法、词汇演变和修辞手法
 2. 广博的古典文献知识，包括经史子集各类典籍
 3. 对古代历史、文化、思想有深入理解
@@ -84,12 +106,25 @@ def generate_response(prompt, model=None):
 5. 你是基于qwen开发的荀子古汉语专用大模型
 
 请用专业、严谨的态度回答问题，引用原文时注明出处，解释时兼顾字面意思和深层含义。'''
-        })
+        )
+        messages.append(system_message.to_dict())
     
-    messages.append({
-        'role': 'user',
-        'content': prompt
-    })
+    # 检查并获取聊天历史
+    if roomId not in chat_histories:
+        # 如果是新的roomId，创建空的历史记录列表
+        chat_histories[roomId] = []
+    else:
+        # 如果已有历史记录，将所有历史消息添加到当前会话中
+        history_messages = chat_histories[roomId]
+        for message in history_messages:
+            messages.append(message.to_dict())
+    
+    # 添加当前用户输入
+    user_message = ChatMessage(
+        role='user',
+        content=prompt
+    )
+    messages.append(user_message.to_dict())
     
     # 构建请求体
     payload = {
@@ -121,7 +156,20 @@ def generate_response(prompt, model=None):
         
         result = response.json()
         if 'choices' in result and len(result['choices']) > 0:
-            return result['choices'][0]['message']['content'].strip()
+            ai_response_content = result['choices'][0]['message']['content'].strip()
+            
+            # 将当前对话添加到聊天历史记录
+            # 1. 添加用户消息到历史记录
+            chat_histories[roomId].append(user_message)
+            
+            # 2. 添加AI响应到历史记录
+            ai_message = ChatMessage(
+                role='assistant',
+                content=ai_response_content
+            )
+            chat_histories[roomId].append(ai_message)
+            
+            return ai_response_content
         else:
             raise ValueError('API 返回格式异常: {}'.format(json.dumps(result)))
             
@@ -136,6 +184,7 @@ def analyze_text():
     
     input_text = data['text']
     model = data.get('model', 'xunzi-qwen2')  # 支持前端指定模型
+    roomId = data.get('roomId', 0)  # 添加roomId参数，默认为0
     
     prompt = f"""
 请将以下古文翻译成现代汉语：
@@ -149,7 +198,7 @@ def analyze_text():
 """
     
     try:
-        response = generate_response(prompt, model)
+        response = generate_response(roomId, prompt, model)
         return jsonify({'result': response})
     except Exception as e:
         return jsonify({'error': f'生成回复时出错: {str(e)}'}), 500
@@ -163,6 +212,7 @@ def qa_text():
     input_text = data['text']
     question = data['question']
     model = data.get('model', 'xunzi-qwen2')  # 支持前端指定模型
+    roomId = data.get('roomId', 0)  # 添加roomId参数，默认为0
     
     prompt = f"""
 原文："{input_text}"
@@ -173,7 +223,7 @@ def qa_text():
 """
     
     try:
-        response = generate_response(prompt, model)
+        response = generate_response(roomId, prompt, model)
         return jsonify({'result': response})
     except Exception as e:
         return jsonify({'error': f'生成回复时出错: {str(e)}'}), 500
@@ -185,6 +235,7 @@ def auto_annotate():
         return jsonify({'error': '请提供要标注的文本'}), 400
     
     input_text = data['text']
+    roomId = data.get('roomId', 0)  # 添加roomId参数，默认为0
     
     prompt = f"""
 请对以下文本进行实体标注，标出所有的人物、地名、时间、器物、概念。
@@ -200,8 +251,8 @@ def auto_annotate():
 
 请直接返回JSON格式的标注结果，格式如下：
 [
-  {{"text": "实体文本", "label": "人物"}},
-  {{"text": "实体文本", "label": "地名"}}
+  {"text": "实体文本", "label": "人物"},
+  {"text": "实体文本", "label": "地名"}
 ]
 
 注意：
@@ -211,7 +262,7 @@ def auto_annotate():
 """
     
     try:
-        response = generate_response(prompt, 'xunzi-qwen2')
+        response = generate_response(roomId, prompt, 'xunzi-qwen2')
         # 尝试解析返回的JSON
         # 清理可能的markdown代码块标记
         cleaned = response.strip()
@@ -284,6 +335,43 @@ def auto_annotate():
         return jsonify({'annotations': unique_annotations})
     except Exception as e:
         return jsonify({'error': f'自动标注时出错: {str(e)}', 'raw_response': response if 'response' in locals() else '无响应'}), 500
+
+# 聊天历史管理API
+
+@app.route('/api/chat-history/<int:roomId>', methods=['GET'])
+def get_chat_history(roomId):
+    """
+    获取指定roomId的聊天历史记录
+    
+    Args:
+        roomId: 聊天室ID
+    """
+    if roomId not in chat_histories:
+        return jsonify({'history': []})
+    
+    # 将ChatMessage对象转换为字典格式返回
+    history = [msg.to_dict() for msg in chat_histories[roomId]]
+    return jsonify({'history': history})
+
+@app.route('/api/chat-history/<int:roomId>', methods=['DELETE'])
+def clear_chat_history(roomId):
+    """
+    清除指定roomId的聊天历史记录
+    
+    Args:
+        roomId: 聊天室ID
+    """
+    if roomId in chat_histories:
+        del chat_histories[roomId]
+    return jsonify({'success': True, 'message': f'已清除roomId {roomId}的聊天历史记录'})
+
+@app.route('/api/chat-history', methods=['DELETE'])
+def clear_all_chat_history():
+    """
+    清除所有聊天历史记录
+    """
+    chat_histories.clear()
+    return jsonify({'success': True, 'message': '已清除所有聊天历史记录'})
 
 if __name__ == '__main__':
     print('=' * 60)

@@ -74,8 +74,7 @@ export default function Profile() {
           <label style={{ fontWeight: 600, color: 'var(--text-color)' }}>确认新密码</label>
           <input type="password" value={form.confirmPassword} onChange={handleChange('confirmPassword')} style={{ padding: '8px 10px', color: 'var(--text-color)', background: 'transparent', border: '1px solid rgba(0,0,0,0.06)' }} />
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-            <button onClick={() => { setForm({ username: user.username || '', email: user.email || '', newPassword: '', confirmPassword: '' }); }} style={{ padding: '8px 12px' }}>取消</button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button onClick={handleSave} disabled={saving} style={{ padding: '8px 12px', background: 'var(--primary)', color: 'var(--primary-contrast)', border: 'none', borderRadius: 4 }}>{saving ? '保存中...' : '保存修改'}</button>
           </div>
         </div>
