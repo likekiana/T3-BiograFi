@@ -1,6 +1,7 @@
 // src/components/editor/RelationAnnotator.js
 import React, { useMemo, useState } from 'react';
 import { t } from '../../utils/language';
+import { aiService } from '../../services/aiService';
 import '../../styles/components/RelationAnnotator.css';
 
 const RelationAnnotator = ({
@@ -9,13 +10,18 @@ const RelationAnnotator = ({
   entityAnnotations = [],
   relations = [],
   onAddRelation,
-  onDeleteRelation
+  onDeleteRelation,
+  content = ''
 }) => {
   const [selectedEntity1, setSelectedEntity1] = useState('');
   const [selectedEntity2, setSelectedEntity2] = useState('');
   const [relationName, setRelationName] = useState('');
   const [adding, setAdding] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGeneratedRelations, setAiGeneratedRelations] = useState([]);
+  const [showAiResults, setShowAiResults] = useState(false);
+  const [selectedAiRelations, setSelectedAiRelations] = useState([]);
 
   const entityOptions = useMemo(
     () =>
@@ -124,6 +130,92 @@ const RelationAnnotator = ({
     }
   };
 
+  // AI辅助标注功能
+  const handleAiAnnotate = async () => {
+    if (entityAnnotations.length < 2) {
+      alert(t('entity_required_for_relation'));
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const generatedRelations = await aiService.autoAnnotateRelations(
+        content,
+        entityAnnotations
+      );
+      setAiGeneratedRelations(generatedRelations);
+      setSelectedAiRelations(generatedRelations.map((_, index) => index));
+      setShowAiResults(true);
+    } catch (error) {
+      console.error('AI关系标注失败:', error);
+      alert(error.message || t('ai_relation_failed'));
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // 处理AI生成关系的选择
+  const handleAiRelationSelect = (index) => {
+    setSelectedAiRelations(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(i => i !== index);
+      } else {
+        return [...prev, index];
+      }
+    });
+  };
+
+  // 全选/取消全选AI生成的关系
+  const handleSelectAllAiRelations = () => {
+    if (selectedAiRelations.length === aiGeneratedRelations.length) {
+      setSelectedAiRelations([]);
+    } else {
+      setSelectedAiRelations(aiGeneratedRelations.map((_, index) => index));
+    }
+  };
+
+  // 批量添加选中的AI生成关系
+  const handleAddSelectedAiRelations = async () => {
+    if (selectedAiRelations.length === 0) {
+      alert(t('select_relations_to_add'));
+      return;
+    }
+
+    setAdding(true);
+    try {
+      const relationsToAdd = selectedAiRelations.map(index => {
+        const rel = aiGeneratedRelations[index];
+        return {
+          entity1: entityAnnotations[rel.entity1Index],
+          entity2: entityAnnotations[rel.entity2Index],
+          relationName: rel.relationName
+        };
+      });
+
+      // 逐个添加关系
+      for (const rel of relationsToAdd) {
+        await onAddRelation(rel);
+      }
+
+      // 清空AI生成结果
+      setAiGeneratedRelations([]);
+      setShowAiResults(false);
+      setSelectedAiRelations([]);
+    } catch (error) {
+      console.error('添加AI生成关系失败:', error);
+      alert(error.message || t('add_relation_failed'));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // 取消AI生成结果
+  const handleCancelAiResults = () => {
+    setShowAiResults(false);
+    setAiGeneratedRelations([]);
+    setSelectedAiRelations([]);
+  };
+
   return (
     <div className="relation-annotator">
       <div className="relation-controls">
@@ -187,6 +279,14 @@ const RelationAnnotator = ({
           {adding ? t('adding') : t('add_relation')}
         </button>
         <button
+          className="action-btn ai-btn"
+          onClick={handleAiAnnotate}
+          disabled={aiGenerating || entityAnnotations.length < 2}
+        >
+          <i data-feather="brain"></i>
+          {aiGenerating ? t('ai_generating') : t('ai_relation_annotate')}
+        </button>
+        <button
           className="action-btn"
           onClick={handleExport}
           disabled={exporting || relations.length === 0}
@@ -195,6 +295,72 @@ const RelationAnnotator = ({
           {exporting ? t('exporting') : t('export_relations')}
         </button>
       </div>
+
+      {/* AI生成关系结果展示 */}
+      {showAiResults && (
+        <div className="ai-results-section">
+          <div className="ai-results-header">
+            <h4>{t('ai_generated_relations')} ({aiGeneratedRelations.length})</h4>
+            <div className="ai-results-actions">
+              <button
+                className="action-btn small"
+                onClick={handleSelectAllAiRelations}
+              >
+                {selectedAiRelations.length === aiGeneratedRelations.length
+                  ? t('deselect_all')
+                  : t('select_all')}
+              </button>
+              <button
+                className="action-btn small cancel-btn"
+                onClick={handleCancelAiResults}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                className="action-btn small primary"
+                onClick={handleAddSelectedAiRelations}
+                disabled={selectedAiRelations.length === 0 || adding}
+              >
+                {adding ? t('adding') : t('add_selected')}
+              </button>
+            </div>
+          </div>
+          <div className="ai-results-list">
+            {aiGeneratedRelations.length === 0 ? (
+              <div className="empty-ai-results">{t('no_ai_relations_generated')}</div>
+            ) : (
+              aiGeneratedRelations.map((rel, index) => {
+                const entity1 = entityAnnotations[rel.entity1Index];
+                const entity2 = entityAnnotations[rel.entity2Index];
+                const isSelected = selectedAiRelations.includes(index);
+                return (
+                  <div
+                    key={index}
+                    className={`ai-relation-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleAiRelationSelect(index)}
+                  >
+                    <div className="ai-relation-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleAiRelationSelect(index)}
+                      />
+                    </div>
+                    <div className="ai-relation-content">
+                      <div className="ai-relation-entities">
+                        <span className="entity-chip">{formatEntityText(entity1)}</span>
+                        <i data-feather="arrow-right"></i>
+                        <span className="entity-chip">{formatEntityText(entity2)}</span>
+                      </div>
+                      <div className="ai-relation-name">{rel.relationName}</div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="relation-list-section">
         <h4>{t('relation_list')}</h4>

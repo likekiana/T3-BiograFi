@@ -1,11 +1,18 @@
 // src/components/editor/ClassicalAnalysis.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { t } from '../../utils/language';
 import { aiService } from '../../services/aiService';
 import Modal from '../common/Modal';
 import '../../styles/components/ClassicalAnalysis.css';
 
-const ClassicalAnalysis = ({ content }) => {
+const ClassicalAnalysis = ({ content, documentId }) => {
+  // 根据documentId生成唯一的localStorage键名
+  const getUniqueKey = (baseKey) => {
+    // 使用documentId作为唯一标识
+    const uniqueId = documentId || 'empty';
+    return `${baseKey}_${uniqueId}`;
+  };
+  
   const [analysisResult, setAnalysisResult] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [qaHistory, setQaHistory] = useState([]);
@@ -13,6 +20,50 @@ const ClassicalAnalysis = ({ content }) => {
   const [answering, setAnswering] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [selectedModel, setSelectedModel] = useState('xunzi-qwen2');
+  
+  // 当content变化时，读取对应的缓存
+  useEffect(() => {
+    const qaHistoryKey = getUniqueKey('classical_analysis_qa_history');
+    const analysisResultKey = getUniqueKey('classical_analysis_result');
+    
+    // 读取对话历史
+    const savedHistory = localStorage.getItem(qaHistoryKey);
+    if (savedHistory) {
+      try {
+        setQaHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('Failed to parse saved QA history:', error);
+        setQaHistory([]);
+      }
+    } else {
+      setQaHistory([]);
+    }
+    
+    // 读取解析结果
+    const savedResult = localStorage.getItem(analysisResultKey);
+    if (savedResult) {
+      try {
+        setAnalysisResult(savedResult);
+      } catch (error) {
+        console.error('Failed to parse saved analysis result:', error);
+        setAnalysisResult('');
+      }
+    } else {
+      setAnalysisResult('');
+    }
+  }, [content]);
+  
+  // 将对话历史保存到localStorage
+  useEffect(() => {
+    const qaHistoryKey = getUniqueKey('classical_analysis_qa_history');
+    localStorage.setItem(qaHistoryKey, JSON.stringify(qaHistory));
+  }, [qaHistory, content]);
+  
+  // 将解析结果保存到localStorage
+  useEffect(() => {
+    const analysisResultKey = getUniqueKey('classical_analysis_result');
+    localStorage.setItem(analysisResultKey, analysisResult);
+  }, [analysisResult, content]);
 
   const models = aiService.getAvailableModels();
 

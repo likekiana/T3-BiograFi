@@ -11,9 +11,9 @@ import { useAuth } from '../hooks/useAuth';
 import { t } from '../utils/language';
 import { debounce } from '../utils';
 import '../styles/pages/Editor.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
-const Editor = ({ document: doc, project, onBack, onSave }) => {
+const Editor = ({ document: propDoc, project, onBack, onSave }) => {
   const {
     updateDocument,
     deleteDocument,
@@ -24,7 +24,8 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
     addRelationAnnotation,
     deleteRelationAnnotation,
     loading: docsLoading,
-    error: docsError
+    error: docsError,
+    getDocument
   } = useDocuments();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('entity');
@@ -36,6 +37,7 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
   const [relationAnnotations, setRelationAnnotations] = useState([]);
   const [saveStatus, setSaveStatus] = useState('');
   const [lastSaved, setLastSaved] = useState('');
+  const [currentDoc, setCurrentDoc] = useState(null);
   const textareaRef = useRef(null);
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [showFindOptions, setShowFindOptions] = useState(false);
@@ -154,6 +156,7 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
   }, [history, historyIndex]);
 
   const navigate = useNavigate();
+  const { id: urlDocId } = useParams();
   const featherRendered = useRef(false);
 
   const { leftWidth, dividerProps } = ResizableDivider({
@@ -192,14 +195,28 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
 
   // 初始化文档数据
   useEffect(() => {
-    if (doc) {
-      setContent(doc.content || '');
-      setDocumentName(doc.name || '');
-      setAuthor(doc.author || '');
+    // 从props加载文档
+    if (propDoc) {
+      setCurrentDoc(propDoc);
+      setContent(propDoc.content || '');
+      setDocumentName(propDoc.name || '');
+      setAuthor(propDoc.author || '');
       loadEntityAnnotations();
       loadRelationAnnotations();
     }
-  }, [doc]);
+    // 从URL参数加载文档
+    else if (urlDocId) {
+      const docFromCache = getDocument(urlDocId);
+      if (docFromCache) {
+        setCurrentDoc(docFromCache);
+        setContent(docFromCache.content || '');
+        setDocumentName(docFromCache.name || '');
+        setAuthor(docFromCache.author || '');
+        loadEntityAnnotations();
+        loadRelationAnnotations();
+      }
+    }
+  }, [propDoc, urlDocId, getDocument]);
 
   // 防抖保存
   const debouncedSave = debounce(async (newContent, newDocName, newAuthor) => {
@@ -994,6 +1011,7 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
             onAddRelation={handleAddRelation}
             onDeleteRelation={handleDeleteRelation}
             readOnly={readOnly}
+            content={content}
           />
         );
       case 'analysis':
@@ -1083,7 +1101,7 @@ const Editor = ({ document: doc, project, onBack, onSave }) => {
               onClick={async () => {
                 if (window.confirm('确定要删除此文档吗？删除后无法恢复。')) {
                   try {
-                    await deleteDocument(doc.id);
+                    await deleteDocument(currentDoc.id);
                     if (onBack) {
                       onBack();
                     } else {

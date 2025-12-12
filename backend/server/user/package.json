@@ -4,12 +4,8 @@
   "description": "用户管理后端服务 - Express 版本",
   "main": "user-server.js",
   "scripts": {
-    "dev": "node start-all.js",
-    "start": "react-scripts start",
-    "start:user": "cd server/user && npm start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "node user-server.js",
+    "start:all": "node ../start-all.js"
   },
   "keywords": [
     "user",

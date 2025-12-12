@@ -213,3 +213,33 @@ button:focus-visible {
 .p-2 { padding: 0.5rem; }
 .p-3 { padding: 0.75rem; }
 .p-4 { padding: 1rem; }
+
+/* 侧边栏布局样式 */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-content {
+  display: flex;
+  flex: 1;
+  margin-top: 60px; /* Header高度 */
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  background-color: var(--bg-color);
+  min-height: calc(100vh - 60px);
+  overflow: hidden;
+  overflow-y: auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+}

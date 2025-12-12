@@ -7,8 +7,6 @@
 }
 
 .dashboard-main {
-  margin-top: 60px; /* Header height */
-  flex: 1;
   padding: 24px;
   min-height: calc(100vh - 60px);
 }

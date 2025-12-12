@@ -9,15 +9,12 @@ export const segmentationService = {
    */
   async segmentTextPreserveFormat(text) {
     try {
-      console.log('开始分词，文本长度：', text.length);
-      
       if (!text || typeof text !== 'string' || !text.trim()) {
         return text;
       }
       
       // 检查是否包含中文
       if (!this.containsChinese(text)) {
-        console.log('文本不包含中文，跳过分词');
         return text;
       }
       
@@ -33,7 +30,6 @@ export const segmentationService = {
       }
       
       if (tokens.length === 0) {
-        console.log('API返回空结果，使用简单分词');
         return this.simpleSegmentChinese(text);
       }
       
@@ -59,19 +55,28 @@ export const segmentationService = {
    * 从HTML内容中提取纯文本
    */
   extractPlainText(html) {
-    if (!html) return '';
+    if (!html || typeof html !== 'string') return '';
     
-    // 创建临时DOM元素来提取纯文本
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.textContent || tempDiv.innerText || '';
+    try {
+      // 创建临时DOM元素来提取纯文本
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      return tempDiv.textContent || tempDiv.innerText || '';
+    } catch (error) {
+      console.error('提取纯文本失败:', error);
+      return html;
+    }
   },
 
   /**
    * 将tokens转换回分词文本，保持原有格式
    */
   tokensToSegmentedText(originalText, tokens) {
-    if (!tokens || tokens.length === 0) {
+    if (!originalText || typeof originalText !== 'string') {
+      return originalText;
+    }
+    
+    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
       return originalText;
     }
     
@@ -95,7 +100,7 @@ export const segmentationService = {
     // 按行处理，保持换行
     const lines = originalText.split('\n');
     const processedLines = lines.map(line => {
-      if (!this.containsChinese(line)) {
+      if (!line || typeof line !== 'string' || !this.containsChinese(line)) {
         return line; // 不含中文的行保持不变
       }
       
@@ -109,6 +114,14 @@ export const segmentationService = {
    * 对单行文本进行分词
    */
   segmentLine(line, wordSet) {
+    if (!line || typeof line !== 'string' || line.length === 0) {
+      return line;
+    }
+    
+    if (!wordSet || !(wordSet instanceof Set)) {
+      return line;
+    }
+    
     let result = '';
     let i = 0;
     
@@ -177,22 +190,27 @@ export const segmentationService = {
       return text;
     }
     
-    // 只在中文词之间加空格
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const nextChar = text[i + 1];
-      
-      result += char;
-      
-      // 如果当前字符是中文，下一个字符也是中文，加空格
-      if (this.isChinese(char) && this.isChinese(nextChar)) {
-        result += ' ';
+    try {
+      // 只在中文词之间加空格
+      let result = '';
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+        
+        result += char;
+        
+        // 如果当前字符是中文，下一个字符也是中文，加空格
+        if (this.isChinese(char) && this.isChinese(nextChar)) {
+          result += ' ';
+        }
       }
+      
+      // 清理多余空格
+      return this.cleanSpaces(result);
+    } catch (error) {
+      console.error('简单分词失败:', error);
+      return text;
     }
-    
-    // 清理多余空格
-    return this.cleanSpaces(result);
   },
 
   /**

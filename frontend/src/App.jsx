@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -56,8 +56,11 @@ const ToastManager = () => {
   return <ToastContainer toasts={toasts} removeToast={removeToast} />;
 };
 
+// 导入外部Layout组件
+import Layout from './components/common/Layout.jsx';
+
 // 保护路由组件
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = () => {
   const { isLoggedIn, loading } = useAuth();
   
   if (loading) {
@@ -69,7 +72,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  return isLoggedIn ? children : <Navigate to="/login" />;
+  return isLoggedIn ? <Outlet /> : <Navigate to="/login" />;
 };
 
 // 公开路由组件（已登录用户不能访问）
@@ -110,48 +113,48 @@ function App() {
                 </PublicRoute>
               } 
             />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/" 
-              element={<Navigate to="/dashboard" />} 
-            />
-
-            {/* 添加 Editor 路由 */}
-            <Route 
-              path="/editor" 
-              element={
-                <ProtectedRoute>
-                  <Editor />
-                </ProtectedRoute>
-              } 
-            />
-            {/* 添加可视化路由 */}
-            <Route 
-              path="/visualization" 
-              element={
-                <ProtectedRoute>
-                  <DataVisualization />
-                </ProtectedRoute>
-              } 
-            />
-            {/* 添加项目级可视化路由 */}
-            <Route 
-              path="/project-visualization" 
-              element={
-                <ProtectedRoute>
-                  <ProjectVisualization />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />  
+            {/* 受保护路由使用嵌套结构，结合Layout组件 */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                {/* 仪表板路由 */}
+                <Route 
+                  path="/dashboard" 
+                  element={<Dashboard />} 
+                />
+                <Route 
+                  path="/" 
+                  element={<Navigate to="/dashboard" />} 
+                />
+                
+                {/* 项目管理路由 */}
+                <Route path="/projects" element={<Dashboard />} />
+                <Route path="/project/:id" element={<Dashboard />} />
+                
+                {/* 编辑器路由 */}
+                <Route 
+                  path="/editor" 
+                  element={<Editor />} 
+                />
+                <Route 
+                  path="/editor/:id" 
+                  element={<Editor />} 
+                />
+                
+                {/* 可视化路由 */}
+                <Route 
+                  path="/visualization" 
+                  element={<DataVisualization />} 
+                />
+                <Route 
+                  path="/project-visualization" 
+                  element={<ProjectVisualization />} 
+                />
+                
+                {/* 用户相关路由 */}
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Route>
             {/* 404 页面 */}
             <Route 
               path="*" 

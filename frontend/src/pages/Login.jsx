@@ -13,7 +13,6 @@ const Login = () => {
   });
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [currentLanguage, setCurrentLanguageState] = useState(getCurrentLanguage());
 
   const { login, isLoggedIn } = useAuth();
@@ -51,27 +50,30 @@ const Login = () => {
 
   const handleLanguageChange = (lang) => {
     setCurrentLanguage(lang);
-    setCurrentLanguage(lang);
+    setCurrentLanguageState(lang);
     window.location.reload();
   };
 
   const handleSubmit = async () => {
-    setError('');
     setLoading(true);
 
-    if (!formData.username || !formData.password) {
-      setError('请填写用户名和密码');
+    // 表单验证
+    if (!formData.username.trim()) {
+      window.showToast('请输入用户名', 'warning');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.password) {
+      window.showToast('请输入密码', 'warning');
       setLoading(false);
       return;
     }
 
     try {
-      console.log('开始登录请求...', formData.username);
       const result = await login(formData.username, formData.password);
-      console.log('登录结果:', result);
       
       if (result.success) {
-        console.log('登录成功，准备跳转...');
         // 记住用户名
         if (rememberMe) {
           authService.rememberUsername(formData.username);
@@ -79,14 +81,15 @@ const Login = () => {
           authService.clearRememberedUsername();
         }
         
+        window.showToast('登录成功', 'success');
         navigate('/dashboard');
       } else {
-        setError(result.error || '登录失败');
-        console.error('登录失败:', result.error);
+        const errorMessage = result.error || '登录失败';
+        window.showToast(errorMessage, 'error');
       }
     } catch (err) {
       console.error('登录异常:', err);
-      setError('登录失败，请重试');
+      window.showToast('登录失败，请检查网络连接或重试', 'error');
     } finally {
       setLoading(false);
     }
@@ -200,12 +203,7 @@ const Login = () => {
               )}
             </button>
             
-            {error && (
-              <div id="error-message" className="error-message">
-                <i data-feather="alert-circle"></i>
-                {error}
-              </div>
-            )}
+            {/* 错误信息通过 Toast 组件显示 */}
           </div>
           
           <div className="login-footer">

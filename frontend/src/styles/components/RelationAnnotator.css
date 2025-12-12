@@ -140,6 +140,127 @@
   padding: 20px 0;
 }
 
+/* AI辅助标注相关样式 */
+.relation-actions .action-btn.ai-btn {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+}
+
+.relation-actions .action-btn.ai-btn:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.ai-results-section {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  margin-top: 8px;
+}
+
+.ai-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ai-results-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ai-results-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-results-actions .action-btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+  gap: 4px;
+}
+
+.ai-results-actions .action-btn.small.cancel-btn {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+.ai-results-actions .action-btn.small.cancel-btn:hover {
+  background: #f3f4f6;
+}
+
+.ai-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ai-relation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.ai-relation-item:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.ai-relation-item.selected {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.ai-relation-checkbox {
+  flex-shrink: 0;
+}
+
+.ai-relation-content {
+  flex: 1;
+}
+
+.ai-relation-entities {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.ai-relation-name {
+  font-weight: 600;
+  color: #111827;
+  font-size: 13px;
+}
+
+.empty-ai-results {
+  text-align: center;
+  color: #9ca3af;
+  padding: 20px 0;
+  font-size: 14px;
+}
+
+/* 小按钮样式 */
+.action-btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+  gap: 4px;
+}
+
 @media (max-width: 768px) {
   .relation-controls {
     flex-direction: column;
@@ -148,4 +269,34 @@
   .relation-name-input input {
     width: 100%;
   }
+
+  .relation-actions {
+    flex-direction: column;
+  }
+
+  .ai-results-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ai-results-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* 国际化文本占位符样式 */
+/* 这些样式将在运行时被实际文本替换 */
+:root {
+  --ai-generating: "AI生成中...";
+  --ai-relation-annotate: "AI辅助标注";
+  --ai_generated_relations: "AI生成的关系";
+  --deselect_all: "取消全选";
+  --select_all: "全选";
+  --cancel: "取消";
+  --add_selected: "添加选中";
+  --no_ai_relations_generated: "没有生成关系";
+  --select_relations_to_add: "请选择要添加的关系";
+  --ai_relation_failed: "AI关系标注失败";
 }

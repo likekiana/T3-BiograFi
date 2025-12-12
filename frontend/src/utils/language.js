@@ -90,6 +90,14 @@ export const translations = {
     'add_relation_failed': '添加关系失败',
     'delete_relation_failed': '删除关系失败',
     'no_relations_to_export': '没有可导出的关系',
+    // AI关系标注
+    'ai_generating': 'AI生成中...',
+    'ai_relation_annotate': 'AI辅助标注',
+    'ai_generated_relations': 'AI生成的关系',
+    'add_selected': '添加选中',
+    'no_ai_relations_generated': '没有生成关系',
+    'select_relations_to_add': '请选择要添加的关系',
+    'ai_relation_failed': 'AI关系标注失败',
     
     // Segmentation
     'run_segmentation': '对当前内容分词',
@@ -312,6 +320,14 @@ export const translations = {
     'add_relation_failed': '添加關係失敗',
     'delete_relation_failed': '刪除關係失敗',
     'no_relations_to_export': '沒有可導出的關係',
+    // AI關係標註
+    'ai_generating': 'AI生成中...',
+    'ai_relation_annotate': 'AI輔助標註',
+    'ai_generated_relations': 'AI生成的關係',
+    'add_selected': '添加選中',
+    'no_ai_relations_generated': '沒有生成關係',
+    'select_relations_to_add': '請選擇要添加的關係',
+    'ai_relation_failed': 'AI關係標註失敗',
     
     // Segmentation
     'run_segmentation': '對當前內容分詞',
@@ -519,6 +535,14 @@ export const translations = {
     'add_relation_failed': 'Failed to add relation',
     'delete_relation_failed': 'Failed to delete relation',
     'no_relations_to_export': 'No relations to export',
+    // AI Relation Annotation
+    'ai_generating': 'AI Generating...',
+    'ai_relation_annotate': 'AI Assisted Annotation',
+    'ai_generated_relations': 'AI Generated Relations',
+    'add_selected': 'Add Selected',
+    'no_ai_relations_generated': 'No relations generated',
+    'select_relations_to_add': 'Please select relations to add',
+    'ai_relation_failed': 'AI relation annotation failed',
     
     // Segmentation
     'run_segmentation': 'Segment Current Content',

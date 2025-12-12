@@ -321,5 +321,126 @@ export const aiService = {
         description: '推理模型，深度分析，速度较慢'
       }
     ];
+  },
+
+  /**
+   * 自动关系标注 
+   * @param {string} text - 要标注的文本
+   * @param {Array} entityAnnotations - 实体标注列表
+   * @param {string} model - 使用的模型
+   * @returns {Promise<Array>} 关系标注结果
+   */
+  async autoAnnotateRelations(text, entityAnnotations, model = 'xunzi-qwen2') {
+    try {
+      console.log('发送自动关系标注请求，实体数量:', entityAnnotations.length, '模型:', model);
+      
+      // 如果实体数量少于2，无法生成关系
+      if (entityAnnotations.length < 2) {
+        return [];
+      }
+      
+      // 准备实体信息，用于AI提示词
+      const entitiesInfo = entityAnnotations.map((ann, index) => {
+        return `${index + 1}. [${ann.label || '其他'}] "${ann.text || ''}" (位置: ${ann.start}-${ann.end})`;
+      }).join('\n');
+      
+      // 设计提示词，让AI生成实体间的关系
+      const prompt = `
+请分析以下文本中的实体之间的关系：
+
+文本内容：
+${text.substring(0, 2000)}...
+
+已识别的实体：
+${entitiesInfo}
+
+请根据文本内容，分析实体之间可能存在的关系，并按照以下格式返回JSON结果：
+
+{
+  "relations": [
+    {
+      "entity1Index": 0,      // 第一个实体在实体列表中的索引（从0开始）
+      "entity2Index": 1,      // 第二个实体在实体列表中的索引（从0开始）
+      "relationName": "父子关系"  // 实体之间的关系名称
+    }
+  ]
+}
+
+注意事项：
+1. 只返回JSON格式，不要包含其他任何解释或说明
+2. 关系名称要简洁明了，如"父子关系"、"朋友关系"、"上下级关系"等
+3. 只分析文本中明确提到的关系，不要凭空猜测
+4. 每个关系只需要返回一次，不要重复
+5. 确保实体索引在有效范围内
+6. 关系是有方向的，注意实体1和实体2的顺序
+`;
+
+
+      
+      // 调用AI服务
+      const result = await api.ai.askQuestion(text, prompt, model);
+      console.log('AI关系标注返回结果:', result);
+      
+      // 提取JSON结果
+      let relationsResult;
+      try {
+        // 清理可能的markdown代码块
+        const cleanedResult = result.result.replace(/```json\n|\n```|```/g, '').trim();
+        relationsResult = JSON.parse(cleanedResult);
+      } catch (jsonError) {
+        console.error('AI关系标注JSON解析失败:', jsonError);
+        console.log('AI返回的原始内容:', result.result);
+        return [];
+      }
+      
+      // 验证结果格式
+      if (!relationsResult.relations || !Array.isArray(relationsResult.relations)) {
+        console.error('AI关系标注结果格式不正确:', relationsResult);
+        return [];
+      }
+      
+      // 处理结果，确保索引有效
+      const validRelations = relationsResult.relations.filter(rel => {
+        const isValid = rel.entity1Index >= 0 && 
+                       rel.entity1Index < entityAnnotations.length && 
+                       rel.entity2Index >= 0 && 
+                       rel.entity2Index < entityAnnotations.length &&
+                       rel.entity1Index !== rel.entity2Index &&
+                       rel.relationName && rel.relationName.trim();
+        if (!isValid) {
+          console.warn('无效的关系:', rel);
+        }
+        return isValid;
+      });
+      
+      // 去重处理
+      const uniqueRelations = this.removeDuplicateRelations(validRelations);
+      console.log(`AI关系标注完成，共生成 ${validRelations.length} 个关系，去重后 ${uniqueRelations.length} 个`);
+      
+      return uniqueRelations;
+      
+    } catch (error) {
+      console.error('自动关系标注失败:', error);
+      throw new Error(`关系标注失败: ${error.message}`);
+    }
+  },
+  
+  /**
+   * 移除重复的关系
+   * @param {Array} relations - 关系数组
+   * @returns {Array} 去重后的关系数组
+   */
+  removeDuplicateRelations(relations) {
+    const uniqueMap = new Map();
+    
+    relations.forEach(rel => {
+      // 关系是有方向的，所以 (A,B,关系) 和 (B,A,关系) 是不同的关系
+      const key = `${rel.entity1Index}-${rel.entity2Index}-${rel.relationName}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, rel);
+      }
+    });
+    
+    return Array.from(uniqueMap.values());
   }
 };

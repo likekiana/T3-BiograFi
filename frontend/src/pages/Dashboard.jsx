@@ -1,6 +1,5 @@
 // src/pages/Dashboard.js
 import React, { useState, useEffect } from 'react';
-import Header from '../components/common/Header';
 import ProjectList from '../components/projects/ProjectList';
 import DocumentList from '../components/documents/DocumentList';
 import Editor from './Editor';
@@ -143,13 +142,6 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      <Header 
-        onShowUserProfile={() => setShowUserProfile(true)}
-        showEditorButtons={currentView === 'editor'}
-        onSaveDocument={handleSaveDocument}
-        onBackToProject={handleBackToDocuments}
-      />
-      
       <main className="dashboard-main">
         {renderContent()}
       </main>

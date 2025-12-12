@@ -148,6 +148,25 @@ export const authService = {
    * 用户登出
    */
   logout() {
+    // 虽然没有后端API需要调用，但我们可以尝试发送一个请求来使token失效
+    try {
+      const base = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
+      fetch(`${base}/api/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: localStorage.getItem('token')
+        })
+      }).catch(() => {
+        // 忽略错误，因为即使请求失败，我们仍然需要清除本地存储
+      });
+    } catch (error) {
+      console.error('登出请求发送失败:', error);
+    }
+    
+    // 清除本地存储
     localStorage.removeItem('currentUser');
     localStorage.removeItem('token');
     localStorage.removeItem('rememberedUsername');

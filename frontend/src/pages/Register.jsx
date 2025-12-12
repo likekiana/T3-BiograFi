@@ -14,8 +14,6 @@ const Register = () => {
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [currentLanguage, setCurrentLanguageState] = useState(getCurrentLanguage());
 
   const { register, isLoggedIn } = useAuth();
@@ -42,61 +40,55 @@ const Register = () => {
 
   const handleLanguageChange = (lang) => {
     setCurrentLanguage(lang);
-    setCurrentLanguage(lang);
+    setCurrentLanguageState(lang);
     window.location.reload();
   };
 
   const handleSubmit = async () => {
-    setError('');
-    setSuccess('');
     setLoading(true);
 
     // 验证逻辑
     if (formData.username.length < 3 || formData.username.length > 20) {
-      setError('用户名长度应在3-20个字符之间');
+      window.showToast('用户名长度应在3-20个字符之间', 'warning');
       setLoading(false);
       return;
     }
 
     if (!isValidEmail(formData.email)) {
-      setError('请输入有效的邮箱地址');
+      window.showToast('请输入有效的邮箱地址', 'warning');
       setLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('密码至少需要6个字符');
+      window.showToast('密码至少需要6个字符', 'warning');
       setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('两次输入的密码不一致');
+      window.showToast('两次输入的密码不一致', 'warning');
       setLoading(false);
       return;
     }
 
     try {
-      console.log('开始注册请求...', formData.username);
       const result = await register(formData.username, formData.email, formData.password);
-      console.log('注册结果:', result);
       
       if (result.success) {
-        setSuccess('注册成功！3秒后跳转到登录页...');
-        console.log('注册成功，准备跳转到登录页...');
+        window.showToast('注册成功！正在跳转到登录页...', 'success');
         
         // 修复：使用更可靠的跳转方式
         setTimeout(() => {
-          console.log('执行跳转到登录页');
           navigate('/login', { replace: true });
-        }, 3000);
+        }, 1500);
       } else {
-        setError(result.error || '注册失败');
-        console.error('注册失败:', result.error);
+        const errorMessage = result.error || '注册失败';
+        window.showToast(errorMessage, 'error');
       }
     } catch (err) {
       console.error('注册异常:', err);
-      setError('注册失败，请重试');
+      window.showToast('注册失败，请重试', 'error');
     } finally {
       setLoading(false);
     }
@@ -226,36 +218,6 @@ const Register = () => {
                 <span id="register-text">{t('register')}</span>
               )}
             </button>
-            
-            {error && (
-              <div id="error-message" className="error-message">
-                <i data-feather="alert-circle"></i>
-                {error}
-              </div>
-            )}
-            
-            {success && (
-              <div id="success-message" className="success-message">
-                <i data-feather="check-circle"></i>
-                {success}
-                <div style={{ marginTop: '10px', fontSize: '14px' }}>
-                  <button 
-                    type="button"
-                    className="login-link"
-                    onClick={() => navigate('/login', { replace: true })}
-                    style={{ 
-                      background: 'none', 
-                      border: 'none', 
-                      color: '#007bff', 
-                      textDecoration: 'underline',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    立即跳转到登录页
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
           
           <div className="register-footer">

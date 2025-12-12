@@ -186,46 +186,40 @@ const Segmentation = ({ content, onApplySegmentation }) => {
 
   const handleSegment = async () => {
     if (!content || !content.trim()) {
-      alert('请输入要分词的文本');
+      window.showToast('请输入要分词的文本', 'warning');
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('开始分词处理...');
-      
       // 先清理和简化HTML
       const cleanedHTML = cleanHTMLTags(content);
       const simplifiedHTML = simplifyHTML(cleanedHTML);
       
-      console.log('清理后的HTML:', simplifiedHTML.substring(0, 200));
-      
       // 分词处理
       const segmentedText = await segmentationService.segmentTextPreserveFormat(simplifiedHTML);
       
-      console.log('分词完成，结果长度:', segmentedText?.length);
-      
       // 再次清理分词结果
-      const finalCleanedHTML = cleanHTMLTags(segmentedText);
-      const finalSimplifiedHTML = simplifyHTML(finalCleanedHTML);
-      
-      console.log('最终处理后的HTML:', finalSimplifiedHTML?.substring(0, 200));
+      const finalCleanedHTML = cleanHTMLTags(segmentedText || '');
+      const finalSimplifiedHTML = simplifyHTML(finalCleanedHTML || '');
       
       // 检查分词是否有变化
       if (!finalSimplifiedHTML || finalSimplifiedHTML === content) {
-        alert('分词失败或没有需要分词的内容');
+        window.showToast('分词失败或没有需要分词的内容', 'warning');
         setLoading(false);
         return;
       }
       
       if (onApplySegmentation) {
         onApplySegmentation(finalSimplifiedHTML);
+      } else {
+        window.showToast('分词成功，但未应用到编辑器', 'info');
       }
       
     } catch (error) {
       console.error('分词失败：', error);
-      alert('分词失败，请重试');
+      window.showToast('分词失败，请重试', 'error');
     } finally {
       setLoading(false);
     }
