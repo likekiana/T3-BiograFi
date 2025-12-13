@@ -193,26 +193,21 @@ const Segmentation = ({ content, onApplySegmentation }) => {
     setLoading(true);
 
     try {
-      // 先清理和简化HTML
-      const cleanedHTML = cleanHTMLTags(content);
-      const simplifiedHTML = simplifyHTML(cleanedHTML);
+      // 确保内容是纯文本，避免HTML格式问题导致白屏
+      const plainText = content.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
       
       // 分词处理
-      const segmentedText = await segmentationService.segmentTextPreserveFormat(simplifiedHTML);
-      
-      // 再次清理分词结果
-      const finalCleanedHTML = cleanHTMLTags(segmentedText || '');
-      const finalSimplifiedHTML = simplifyHTML(finalCleanedHTML || '');
+      const segmentedText = await segmentationService.segmentTextPreserveFormat(plainText);
       
       // 检查分词是否有变化
-      if (!finalSimplifiedHTML || finalSimplifiedHTML === content) {
+      if (!segmentedText || segmentedText === plainText) {
         window.showToast('分词失败或没有需要分词的内容', 'warning');
         setLoading(false);
         return;
       }
       
       if (onApplySegmentation) {
-        onApplySegmentation(finalSimplifiedHTML);
+        onApplySegmentation(segmentedText);
       } else {
         window.showToast('分词成功，但未应用到编辑器', 'info');
       }

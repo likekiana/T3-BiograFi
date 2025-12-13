@@ -313,52 +313,42 @@ const TextEditor = ({
       }
       
       // 将内容片段转换为DOM元素
-      contentFragments.forEach(fragment => {
-        if (fragment.type === 'text') {
-          // 添加普通文本
-          const textSpan = document.createElement('span');
-          textSpan.className = 'plain-text';
-          textSpan.textContent = fragment.content;
-          container.appendChild(textSpan);
-        } else if (fragment.type === 'annotation') {
-          // 添加标注
-          const annotation = fragment.annotation;
-          const labelConfig = entityLabels.find(l => l.value === annotation.label);
-          const color = labelConfig ? labelConfig.color : '#64748b';
-          
-          const annotationSpan = document.createElement('span');
-          annotationSpan.className = 'entity-annotation preview-mode';
-          annotationSpan.style.cssText = `
-            background-color: ${color}20;
-            border-bottom: 2px solid ${color};
-            display: inline;
-            padding: 2px 4px;
-            border-radius: 4px;
-            margin: 0 2px;
-            position: relative;
-            line-height: inherit;
-            font-size: 16px;
-          `;
-          annotationSpan.textContent = fragment.content;
-          
-          const badgeSpan = document.createElement('span');
-          badgeSpan.className = 'annotation-label-badge';
-          badgeSpan.style.cssText = `
-            background-color: ${color};
-            color: white;
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 6px;
-            margin-left: 6px;
-            vertical-align: super;
-            line-height: 1;
-          `;
-          badgeSpan.textContent = annotation.label;
-          
-          annotationSpan.appendChild(badgeSpan);
-          container.appendChild(annotationSpan);
-        }
-      });
+    contentFragments.forEach(fragment => {
+      if (fragment.type === 'text') {
+        // 添加普通文本
+        const textSpan = document.createElement('span');
+        textSpan.className = 'plain-text';
+        textSpan.textContent = fragment.content;
+        container.appendChild(textSpan);
+      } else if (fragment.type === 'annotation') {
+        // 添加标注
+        const annotation = fragment.annotation;
+        const labelConfig = entityLabels.find(l => l.value === annotation.label);
+        const color = labelConfig ? labelConfig.color : '#64748b';
+        
+        const annotationSpan = document.createElement('span');
+        // 编辑模式下使用不同的样式，不显示徽章
+        annotationSpan.className = 'entity-annotation edit-mode';
+        annotationSpan.style.cssText = `
+          background-color: ${color}20;
+          border-bottom: 2px solid ${color};
+          display: inline;
+          padding: 2px 4px;
+          border-radius: 4px;
+          margin: 0 1px;
+          position: relative;
+          line-height: inherit;
+          font-size: 16px;
+          cursor: text; /* 确保光标显示为文本输入模式 */
+          user-select: text; /* 允许文本选择 */
+        `;
+        annotationSpan.textContent = fragment.content;
+        
+        // 只在预览模式下添加标注徽章
+        // 编辑模式下不添加徽章，避免影响编辑
+        container.appendChild(annotationSpan);
+      }
+    });
       
       return container.outerHTML;
     });
@@ -389,7 +379,7 @@ const TextEditor = ({
     }
   }, [content, showPreviewInline]);
 
-  // 当文本或模式变化时更新分页
+  // 当文本、标注或模式变化时更新分页
   useEffect(() => {
     const plainText = getPlainText(text);
     let newTotalPages = 1;
@@ -402,7 +392,7 @@ const TextEditor = ({
     
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
-  }, [text, showPreviewInline]);
+  }, [text, annotations, showPreviewInline]);
 
   // 当当前页变化时，确保editorRef更新内容
   useEffect(() => {
@@ -648,13 +638,23 @@ const TextEditor = ({
         </div>
         
         <div className="toolbar-right">
+          {/* 编辑模式按钮 */}
           <button
-            ref={previewToggleRef}
-            className={`toolbar-btn preview-toggle-btn ${showPreviewInline ? 'active' : ''}`}
-            onClick={togglePreviewMode}
-            title={showPreviewInline ? "切换到编辑模式" : "显示标注预览"}
+            className={`toolbar-btn preview-toggle-btn ${!showPreviewInline ? 'active' : ''}`}
+            onClick={() => setShowPreviewInline(false)}
+            title="切换到编辑模式"
           >
-            <i data-feather={showPreviewInline ? "edit-2" : "eye"}></i>
+            <i data-feather="edit-2"></i>
+            <span>编辑</span>
+          </button>
+          {/* 预览模式按钮 */}
+          <button
+            className={`toolbar-btn preview-toggle-btn ${showPreviewInline ? 'active' : ''}`}
+            onClick={() => setShowPreviewInline(true)}
+            title="显示标注预览"
+          >
+            <i data-feather="eye"></i>
+            <span>预览</span>
           </button>
         </div>
       </div>

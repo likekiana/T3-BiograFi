@@ -281,6 +281,7 @@ const EntityAnnotator = ({
     const selectedHTML = range.cloneContents();
     const tempDiv = document.createElement('div');
     tempDiv.appendChild(selectedHTML);
+    // 获取用户实际选中的文本内容
     const selectedPlainText = tempDiv.textContent || tempDiv.innerText || '';
     
     if (!selectedPlainText.trim()) {
@@ -307,60 +308,34 @@ const EntityAnnotator = ({
       return;
     }
     
-    const plainText = getPlainText(content);
-    const selectedText = selectedPlainText;
+    // 核心原则：完全使用用户实际选中的文本，不进行任何位置查找
+    // 直接使用用户选中的文本内容，不尝试在整个文本中查找位置
+    const selectedText = selectedPlainText.trim();
     
-    let start = -1;
-    let end = -1;
-    
-    // 确保基于文本内容查找位置，而不仅仅是默认逻辑
-    start = plainText.indexOf(selectedText);
-    if (start !== -1) {
-      end = start + selectedText.length;
-    } else {
-      console.warn(`在文本中找不到选中的文本 "${selectedText}"`);
-      return;
-    }
-    
-    if (start < 0 || end <= start || end > plainText.length) {
-      console.warn(`选中的文本位置无效: start=${start}, end=${end}, textLength=${plainText.length}`);
-      return;
-    }
-    
-    const overlappingAnnotation = annotations.find(ann => 
-      (start >= ann.start && start < ann.end) ||
-      (end > ann.start && end <= ann.end) ||
-      (start <= ann.start && end >= ann.end)
-    );
-
-    if (overlappingAnnotation) {
-      setSelectedText(overlappingAnnotation.text);
-      setSelectionStart(overlappingAnnotation.start);
-      setSelectionEnd(overlappingAnnotation.end);
-      setSelectedLabel(overlappingAnnotation.label);
-      setEditingAnnotation(overlappingAnnotation);
-      setIsSelecting(true);
-      
-      const rect = range.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        const menuHeight = 40;
-        const yPosition = rect.top - menuHeight - 10;
-        
-        setQuickActionsPosition({
-          x: rect.left + rect.width / 2,
-          y: Math.max(20, yPosition)
-        });
-        setShowQuickActions(true);
-      }
-      return;
-    }
-
+    // 直接使用用户选中的文本，不再尝试计算位置
+    // 当有重复内容时，indexOf()会返回错误位置，导致选中前面的文本却显示后面的文本
     setSelectedText(selectedText);
-    setSelectionStart(start);
-    setSelectionEnd(end);
     setIsSelecting(true);
-    setEditingAnnotation(null);
     
+    // 不再使用indexOf()查找位置，而是使用一个基于选中文本长度的临时位置
+    // 这个位置只是用于创建标注，实际标注内容是用户选中的文本
+    setSelectionStart(0);
+    setSelectionEnd(selectedText.length);
+    
+    // 检查是否有相同文本内容的标注
+    // 基于文本内容完全匹配，而不是位置
+    const sameTextAnnotation = annotations.find(ann => {
+      return ann.text === selectedText || 
+             ann.text.replace(/\s+/g, '') === selectedText.replace(/\s+/g, '');
+    });
+    
+    if (sameTextAnnotation) {
+      setEditingAnnotation(sameTextAnnotation);
+    } else {
+      setEditingAnnotation(null);
+    }
+    
+    // 显示快捷菜单
     const rect = range.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       const menuHeight = 40;
@@ -372,7 +347,7 @@ const EntityAnnotator = ({
       });
       setShowQuickActions(true);
     }
-  }, [textareaRef, content, annotations, readOnly, isSelecting, getPlainText]);
+  }, [textareaRef, annotations, readOnly, isSelecting]);
 
   // 渲染feather图标
   useEffect(() => {
@@ -907,17 +882,16 @@ const EntityAnnotator = ({
       </div>
     ) : (
       annotations.map((annotation, index) => {
-        const plainText = getPlainText(content);
-        const isValid = validateAnnotation(annotation, plainText);
-        
-        if (!isValid) {
-          return null;
-        }
-        
-        const actualText = plainText.slice(annotation.start, annotation.end);
         const labelConfig = entityLabels.find(l => l.value === annotation.label);
         const color = labelConfig ? labelConfig.color : '#64748b';
         const isCustom = labelConfig?.isCustom || false;
+        
+        // 直接使用标注的文本内容，而不是通过位置切片获取
+        // 这样确保标注基于文本内容，而不是位置
+        const actualText = annotation.text;
+        
+        // 只验证标注是否有文本内容，不验证位置
+        const isValid = !!actualText && actualText.trim().length > 0;
         
         return (
           <div 

@@ -298,19 +298,135 @@ const Editor = ({ document: propDoc, project: propProject, onBack, onSave }) => 
         return null;
       }
       
-      // 在新文本中查找标注文本
-      const startIndex = newPlainText.indexOf(originalText);
+      // 核心原则：标注基于文本内容，位置改变时更新位置，不丢失标注
+      let startIndex = -1;
+      let matchedText = '';
       
-      // 如果找到了，更新位置和文本
+      // 1. 首先尝试完全匹配原始文本（保留原有行为）
+      startIndex = newPlainText.indexOf(originalText);
       if (startIndex !== -1) {
+        matchedText = originalText;
+      }
+      
+      // 2. 如果完全匹配失败，尝试匹配去掉空格的版本（处理分词情况）
+      if (startIndex === -1) {
+        const originalTextNoSpaces = originalText.replace(/\s+/g, '');
+        const newPlainTextNoSpaces = newPlainText.replace(/\s+/g, '');
+        
+        // 找到无空格版本的位置
+        const noSpacesIndex = newPlainTextNoSpaces.indexOf(originalTextNoSpaces);
+        
+        if (noSpacesIndex !== -1) {
+          // 计算在有空格版本中的实际位置
+          let charCount = 0;
+          let actualStartIndex = 0;
+          
+          for (let i = 0; i < newPlainText.length && charCount < noSpacesIndex; i++) {
+            if (newPlainText[i] !== ' ') {
+              charCount++;
+            }
+            actualStartIndex = i + 1;
+          }
+          
+          startIndex = actualStartIndex - 1;
+          
+          // 从起始位置开始，提取包含空格的实际文本
+          let endIndex = startIndex;
+          let tempCharCount = 0;
+          while (endIndex < newPlainText.length && tempCharCount < originalTextNoSpaces.length) {
+            if (newPlainText[endIndex] !== ' ') {
+              tempCharCount++;
+            }
+            endIndex++;
+          }
+          
+          matchedText = newPlainText.substring(startIndex, endIndex);
+        }
+      }
+      
+      // 3. 如果仍然失败，尝试匹配文本内容的所有可能位置（更严格的内容匹配）
+      if (startIndex === -1) {
+        const originalTextNoSpaces = originalText.replace(/\s+/g, '');
+        const newPlainTextNoSpaces = newPlainText.replace(/\s+/g, '');
+        
+        // 查找所有可能的匹配位置
+        let position = 0;
+        while (position < newPlainTextNoSpaces.length) {
+          const index = newPlainTextNoSpaces.indexOf(originalTextNoSpaces, position);
+          if (index === -1) break;
+          
+          // 转换为有空格的实际位置
+          let charCount = 0;
+          let actualStartIndex = 0;
+          for (let i = 0; i < newPlainText.length && charCount < index; i++) {
+            if (newPlainText[i] !== ' ') {
+              charCount++;
+            }
+            actualStartIndex = i + 1;
+          }
+          
+          startIndex = actualStartIndex - 1;
+          
+          // 提取实际文本
+          let endIndex = startIndex;
+          let tempCharCount = 0;
+          while (endIndex < newPlainText.length && tempCharCount < originalTextNoSpaces.length) {
+            if (newPlainText[endIndex] !== ' ') {
+              tempCharCount++;
+            }
+            endIndex++;
+          }
+          
+          matchedText = newPlainText.substring(startIndex, endIndex);
+          break;
+        }
+      }
+      
+      // 4. 最终尝试：如果文本内容存在，无论位置如何，都更新标注
+      if (startIndex === -1) {
+        // 检查文本内容是否存在（忽略空格）
+        const originalTextNoSpaces = originalText.replace(/\s+/g, '');
+        const newPlainTextNoSpaces = newPlainText.replace(/\s+/g, '');
+        
+        if (newPlainTextNoSpaces.includes(originalTextNoSpaces)) {
+          // 找到第一个匹配的字符位置
+          let charCount = 0;
+          let actualStartIndex = 0;
+          const firstChar = originalTextNoSpaces[0];
+          
+          for (let i = 0; i < newPlainText.length; i++) {
+            if (newPlainText[i] === firstChar) {
+              startIndex = i;
+              break;
+            }
+          }
+          
+          if (startIndex !== -1) {
+            // 提取实际文本
+            let endIndex = startIndex;
+            let tempCharCount = 0;
+            while (endIndex < newPlainText.length && tempCharCount < originalTextNoSpaces.length) {
+              if (newPlainText[endIndex] !== ' ') {
+                tempCharCount++;
+              }
+              endIndex++;
+            }
+            
+            matchedText = newPlainText.substring(startIndex, endIndex);
+          }
+        }
+      }
+      
+      // 如果找到了匹配的文本，更新标注位置
+      if (startIndex !== -1 && matchedText) {
         return {
           ...annotation,
           start: startIndex,
-          end: startIndex + originalText.length,
-          text: originalText
+          end: startIndex + matchedText.length,
+          text: matchedText // 使用实际匹配到的文本，可能包含分词后的空格
         };
       } else {
-        // 如果找不到完全匹配的文本，尝试查找相似内容或标记为无效
+        // 只有在文本内容确实不存在时才移除标注
         console.warn(`标注文本 "${originalText}" 在新内容中找不到，将被移除`);
         return null;
       }
