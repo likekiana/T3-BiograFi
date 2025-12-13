@@ -44,24 +44,32 @@ const EventDetailView = ({ event, characterName: propCharacterName, onClose, doc
     const savedDetails = localStorage.getItem(characterDetailsKey);
     const savedRelatedEvents = localStorage.getItem(characterRelatedEventsKey);
     
-    if (savedDetails && savedRelatedEvents) {
+    if (savedDetails) {
       try {
         const parsedDetails = JSON.parse(savedDetails);
-        const parsedRelatedEvents = JSON.parse(savedRelatedEvents);
         console.log('Loaded saved details:', parsedDetails);
-        console.log('Loaded saved related events:', parsedRelatedEvents);
         setDetails(parsedDetails);
-        setRelatedEvents(parsedRelatedEvents);
         setLoading(false);
-        return;
       } catch (error) {
         console.error('Failed to parse saved details:', error);
       }
     }
     
+    if (savedRelatedEvents) {
+      try {
+        const parsedRelatedEvents = JSON.parse(savedRelatedEvents);
+        console.log('Loaded saved related events:', parsedRelatedEvents);
+        setRelatedEvents(parsedRelatedEvents);
+      } catch (error) {
+        console.error('Failed to parse saved related events:', error);
+      }
+    }
+    
     // 没有保存的详情，生成新的
-    console.log('No saved details, calling fetchEventDetails');
-    fetchEventDetails();
+    if (!savedDetails) {
+      console.log('No saved details, calling fetchEventDetails');
+      fetchEventDetails();
+    }
   }, [event, selectedCharacter, documentId]);
   
   // 当details变化时，保存到localStorage
@@ -87,64 +95,62 @@ const EventDetailView = ({ event, characterName: propCharacterName, onClose, doc
   const fetchEventDetails = async () => {
     setLoading(true);
     try {
-      // 1. 获取事件的基本信息
-      const eventPrompt = `事件背景：${event.context}
+      // 合并AI请求，减少调用次数
+      const combinedPrompt = `事件背景：${event.context}
       事件时间：${event.time}
+      传记人物：${selectedCharacter}
       
-      请从以下方面详细描述此事件：
-      1. 事件发生的具体背景和原因
-      2. 事件的主要经过
-      3. 事件涉及的主要人物及其角色
-      4. 事件的结果和影响`;
+      请按照以下格式返回JSON：
+      {
+        "eventDetails": "[事件详情，包括背景、经过、人物、结果]",
+        "characterPerspective": "[从${selectedCharacter}第一人称视角描述的经历]",
+        "backgroundInfo": "[相关历史背景和社会环境]"
+      }
+      
+      要求：
+      1. eventDetails：详细描述事件的背景、经过、涉及人物和结果影响
+      2. characterPerspective：从${selectedCharacter}第一人称视角描述其在事件中的行为、动机和影响
+      3. backgroundInfo：提供相关历史背景和社会环境信息
+      4. 只返回JSON，不要其他任何内容`;
 
-      // 2. 从传记人物视角分析
-      const characterPrompt = `假设您是${selectedCharacter}，请从第一人称视角描述：
-      1. 您在这个事件中的具体行为和决策
-      2. 您的动机和考虑因素
-      3. 事件对您个人的影响
-      4. 您从中学到的经验教训`;
-
-      // 3. 获取相关资料和背景信息
-      const backgroundPrompt = `基于历史事实和公开资料，请提供：
-      1. 相关的历史背景信息
-      2. 事件的关键细节补充
-      3. 当时的社会环境和影响因素`;
-
-      const [eventDetails, characterPerspective, backgroundInfo] = await Promise.all([
-        aiService.askQuestion(event.context, eventPrompt, 'xunzi-qwen2', documentId),
-        aiService.askQuestion(event.context, characterPrompt, 'xunzi-qwen2', documentId),
-        aiService.askQuestion(event.context, backgroundPrompt, 'xunzi-qwen2', documentId)
-      ]);
-
+      // 只调用一次AI服务
+      const combinedResponse = await aiService.askQuestion(event.context, combinedPrompt, 'xunzi-qwen2', documentId);
+      
+      // 解析JSON响应
+      const parsedResponse = JSON.parse(combinedResponse);
+      
       setDetails({
-        eventDetails,
-        characterPerspective,
-        backgroundInfo,
+        eventDetails: parsedResponse.eventDetails,
+        characterPerspective: parsedResponse.characterPerspective,
+        backgroundInfo: parsedResponse.backgroundInfo,
         timestamp: new Date().toISOString()
       });
 
-      // 4. 查找相关事件
-      await fetchRelatedEvents();
+      // 异步获取相关事件，不阻塞主界面显示
+      fetchRelatedEvents();
     } catch (error) {
       console.error('获取事件详情失败:', error);
       setDetails({
         error: '无法获取事件详情，请稍后重试'
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchRelatedEvents = async () => {
-    // 这里可以根据时间或关键词查找相关事件
-    const prompt = `基于事件"${event.time}: ${event.context.substring(0, 100)}..."，请列出3个相关的历史事件或背景事件，格式为JSON数组`;
-    
     try {
+      // 这里可以根据时间或关键词查找相关事件
+      const prompt = `基于事件"${event.time}: ${event.context.substring(0, 100)}..."，请列出3个相关的历史事件或背景事件，格式为JSON数组
+      只返回JSON，不要其他任何内容`;
+      
       const response = await aiService.askQuestion(event.context, prompt, 'xunzi-qwen2', documentId);
       // 解析AI返回的JSON数据
       const events = JSON.parse(response || '[]');
       setRelatedEvents(events);
     } catch (error) {
       console.error('获取相关事件失败:', error);
+      // 失败不影响主界面，静默处理
     }
   };
 
