@@ -222,133 +222,104 @@ const TextEditor = ({
       const pageStart = textPages.slice(0, pageIndex).reduce((sum, page) => sum + page.length, 0);
       const pageEnd = pageStart + pageText.length;
       
-      // 获取所有有效的标注，并按文本内容在当前页中的位置排序
-      const validAnnotations = annotations
-        .filter(ann => {
-          // 检查标注是否有文本内容
-          if (!ann.text) return false;
-          // 验证标注文本在实际文本中存在
-          return plainText.includes(ann.text);
-        })
-        // 为每个标注计算其在当前文本中的实际位置
-        .map(ann => {
-          // 在实际文本中查找标注文本的位置
-          const startIndex = plainText.indexOf(ann.text);
-          if (startIndex !== -1) {
-            return {
-              ...ann,
-              start: startIndex,
-              end: startIndex + ann.text.length
-            };
-          }
-          return null;
-        })
-        .filter(Boolean)
-        // 过滤出当前页范围内的标注
-        .filter(ann => {
-          const overlapStart = Math.max(ann.start, pageStart);
-          const overlapEnd = Math.min(ann.end, pageEnd);
-          return overlapStart < overlapEnd;
-        })
-        // 按标注在当前页中的实际位置排序
-        .sort((a, b) => a.start - b.start);
-      
-      let lastIndex = 0;
-      let processedText = pageText;
-      
-      // 创建一个数组来存储文本片段和标注
+      // 处理文本，直接在当前页文本中查找并添加标注
+      // 首先将当前页文本按段落分割
+      let remainingText = pageText;
       const contentFragments = [];
       
-      // 首先添加所有非标注文本片段
-      if (validAnnotations.length === 0) {
+      // 按文本内容查找并匹配标注
+      // 先处理当前页范围内的标注
+      const pageAnnotations = annotations.filter(ann => {
+        // 检查标注文本是否在当前页中
+        return ann.text && pageText.includes(ann.text);
+      });
+      
+      if (pageAnnotations.length === 0) {
         // 没有标注，直接添加整个页面文本
-        contentFragments.push({
-          type: 'text',
-          content: pageText
-        });
+        const textSpan = document.createElement('span');
+        textSpan.className = 'plain-text';
+        textSpan.textContent = pageText;
+        container.appendChild(textSpan);
       } else {
-        validAnnotations.forEach((annotation) => {
-          // 计算标注在当前页中的实际位置
-          const actualStart = annotation.start;
-          const actualEnd = annotation.end;
-          
-          // 计算标注在当前页文本中的相对位置
-          const pageRelativeStart = actualStart - pageStart;
-          const pageRelativeEnd = actualEnd - pageStart;
-          
-          // 确保位置在当前页范围内
-          if (pageRelativeStart >= 0 && pageRelativeEnd <= pageText.length) {
-            // 添加标注前的文本
-            if (pageRelativeStart > lastIndex) {
-              const textSegment = pageText.slice(lastIndex, pageRelativeStart);
-              if (textSegment) {
-                contentFragments.push({
-                  type: 'text',
-                  content: textSegment
-                });
-              }
-            }
-            
-            // 添加标注
-            contentFragments.push({
-              type: 'annotation',
-              content: annotation.text,
+        // 有标注，按顺序处理
+        let currentPosition = 0;
+        
+        // 创建一个临时数组，用于存储标注在当前页中的位置
+        const annotationPositions = [];
+        
+        // 为每个标注在当前页中查找所有出现的位置
+        pageAnnotations.forEach(annotation => {
+          let startPos = pageText.indexOf(annotation.text, 0);
+          while (startPos !== -1) {
+            annotationPositions.push({
+              start: startPos,
+              end: startPos + annotation.text.length,
               annotation: annotation
             });
-            
-            lastIndex = pageRelativeEnd;
+            // 查找下一个出现位置
+            startPos = pageText.indexOf(annotation.text, startPos + 1);
           }
+        });
+        
+        // 按位置排序
+        annotationPositions.sort((a, b) => a.start - b.start);
+        
+        // 去重，保留不重叠的标注
+        const uniqueAnnotations = [];
+        let lastEnd = -1;
+        annotationPositions.forEach(ap => {
+          if (ap.start >= lastEnd) {
+            uniqueAnnotations.push(ap);
+            lastEnd = ap.end;
+          }
+        });
+        
+        // 生成内容片段
+        uniqueAnnotations.forEach((ap, index) => {
+          // 添加标注前的文本
+          if (ap.start > currentPosition) {
+            const textSegment = pageText.slice(currentPosition, ap.start);
+            const textSpan = document.createElement('span');
+            textSpan.className = 'plain-text';
+            textSpan.textContent = textSegment;
+            container.appendChild(textSpan);
+          }
+          
+          // 添加标注
+          const annotation = ap.annotation;
+          const labelConfig = entityLabels.find(l => l.value === annotation.label);
+          const color = labelConfig ? labelConfig.color : '#64748b';
+          
+          const annotationSpan = document.createElement('span');
+          annotationSpan.className = 'entity-annotation edit-mode';
+          annotationSpan.style.cssText = `
+            background-color: ${color}20;
+            border-bottom: 2px solid ${color};
+            display: inline;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin: 0 1px;
+            position: relative;
+            line-height: inherit;
+            font-size: 16px;
+            cursor: text;
+            user-select: text;
+          `;
+          annotationSpan.textContent = annotation.text;
+          container.appendChild(annotationSpan);
+          
+          currentPosition = ap.end;
         });
         
         // 添加最后一个标注后的文本
-        if (lastIndex < pageText.length) {
-          const textSegment = pageText.slice(lastIndex);
-          if (textSegment) {
-            contentFragments.push({
-              type: 'text',
-              content: textSegment
-            });
-          }
+        if (currentPosition < pageText.length) {
+          const textSegment = pageText.slice(currentPosition);
+          const textSpan = document.createElement('span');
+          textSpan.className = 'plain-text';
+          textSpan.textContent = textSegment;
+          container.appendChild(textSpan);
         }
       }
-      
-      // 将内容片段转换为DOM元素
-    contentFragments.forEach(fragment => {
-      if (fragment.type === 'text') {
-        // 添加普通文本
-        const textSpan = document.createElement('span');
-        textSpan.className = 'plain-text';
-        textSpan.textContent = fragment.content;
-        container.appendChild(textSpan);
-      } else if (fragment.type === 'annotation') {
-        // 添加标注
-        const annotation = fragment.annotation;
-        const labelConfig = entityLabels.find(l => l.value === annotation.label);
-        const color = labelConfig ? labelConfig.color : '#64748b';
-        
-        const annotationSpan = document.createElement('span');
-        // 编辑模式下使用不同的样式，不显示徽章
-        annotationSpan.className = 'entity-annotation edit-mode';
-        annotationSpan.style.cssText = `
-          background-color: ${color}20;
-          border-bottom: 2px solid ${color};
-          display: inline;
-          padding: 2px 4px;
-          border-radius: 4px;
-          margin: 0 1px;
-          position: relative;
-          line-height: inherit;
-          font-size: 16px;
-          cursor: text; /* 确保光标显示为文本输入模式 */
-          user-select: text; /* 允许文本选择 */
-        `;
-        annotationSpan.textContent = fragment.content;
-        
-        // 只在预览模式下添加标注徽章
-        // 编辑模式下不添加徽章，避免影响编辑
-        container.appendChild(annotationSpan);
-      }
-    });
       
       return container.outerHTML;
     });
@@ -374,10 +345,11 @@ const TextEditor = ({
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
     
+    // 只有当当前页超出总页数时，才重置到第一页
     if (currentPage > newTotalPages) {
       setCurrentPage(1);
     }
-  }, [content, showPreviewInline]);
+  }, [content, showPreviewInline, currentPage]);
 
   // 当文本、标注或模式变化时更新分页
   useEffect(() => {
@@ -392,7 +364,12 @@ const TextEditor = ({
     
     setPagesContent(newPagesContent);
     setTotalPages(newTotalPages);
-  }, [text, annotations, showPreviewInline]);
+    
+    // 只有当当前页超出总页数时，才重置到第一页
+    if (currentPage > newTotalPages) {
+      setCurrentPage(1);
+    }
+  }, [text, annotations, showPreviewInline, currentPage]);
 
   // 当当前页变化时，确保editorRef更新内容
   useEffect(() => {
@@ -416,22 +393,56 @@ const TextEditor = ({
   const handleInput = (e) => {
     if (showPreviewInline) return;
     
-    // 提取纯文本内容，忽略标注标签
-    const newHtml = e.currentTarget.innerHTML;
-    const newText = getPlainText(newHtml);
-    updateContent(newText);
+    // 编辑器中显示的只是当前页的内容，我们需要信任传入的 content prop 是完整的文本内容
+    // 当用户在编辑器中输入内容时，我们应该更新完整的文本内容
+    // 问题在于，我们无法直接从编辑器中获取完整的内容，因为编辑器中只显示当前页的内容
+    // 所以，我们需要一种方法来更新当前页的内容，同时保留其他页面的内容
     
-    // 重新生成分页内容，包括标注
-    if (showPreviewInline) {
-      const previewResult = createPreviewPages(newText);
+    // 获取当前页的内容
+    const newHtml = e.currentTarget.innerHTML;
+    const currentPagePlainText = getPlainText(newHtml);
+    
+    // 我们应该将当前页的内容传递给父组件，让父组件更新完整的内容
+    // 但是，我们不能直接替换完整的内容，因为这样会丢失其他页面的内容
+    // 所以，我们需要一种方法来告诉父组件，我们更新的是哪一页的内容
+    // 但是，当前的组件设计不支持这种方式
+    
+    // 因此，我们需要修改组件的设计，确保当用户在编辑器中输入内容时，我们不会丢失其他页面的内容
+    // 一个更好的方法是：编辑器中始终显示完整的内容，但是只显示当前页的内容，其他页面的内容隐藏起来
+    // 但是，这种方法需要更复杂的实现
+    
+    // 暂时，我们采用一种简单的方法：当用户在编辑器中输入内容时，我们仍然更新完整的内容
+    // 但是，我们会尝试保留其他页面的内容
+    
+    // 获取完整的纯文本内容
+    const fullPlainText = getPlainText(text);
+    
+    // 如果当前只有一页，直接更新
+    if (totalPages <= 1) {
+      updateContent(currentPagePlainText);
+      // 重新生成分页内容，包括标注
+      const previewResult = createPreviewPages(currentPagePlainText);
       setPagesContent(previewResult.pages);
       setTotalPages(previewResult.totalPages);
-    } else {
-      // 编辑模式下，也使用带标注的内容
-      const previewResult = createPreviewPages(newText);
-      setPagesContent(previewResult.pages);
-      setTotalPages(previewResult.totalPages);
+      return;
     }
+    
+    // 如果有多页，我们需要更智能地处理
+    // 1. 获取当前页的起始和结束位置
+    const currentPageIndex = currentPage - 1;
+    const pageStart = pagesContent.slice(0, currentPageIndex).reduce((sum, page) => sum + getPlainText(page).length, 0);
+    const pageEnd = pageStart + getPlainText(pagesContent[currentPageIndex]).length;
+    
+    // 2. 生成新的完整文本内容
+    const newFullPlainText = fullPlainText.slice(0, pageStart) + currentPagePlainText + fullPlainText.slice(pageEnd);
+    
+    // 3. 更新完整文本内容
+    updateContent(newFullPlainText);
+    
+    // 4. 重新生成分页内容，包括标注
+    const previewResult = createPreviewPages(newFullPlainText);
+    setPagesContent(previewResult.pages);
+    setTotalPages(previewResult.totalPages);
   };
 
   // 分页控制
