@@ -1,0 +1,31 @@
+.welcome-app {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #0d0d0d;
+  overflow-x: hidden;
+  color: rgba(255, 255, 255, 0.87);
+  position: relative;
+}
+
+.welcome-main-content {
+  width: 100%;
+}
+
+/* 滚动条样式 */
+.welcome-app::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.welcome-app::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.welcome-app::-webkit-scrollbar-thumb {
+  background: #5f8cff;
+  border-radius: 4px;
+}
+
+.welcome-app::-webkit-scrollbar-thumb:hover {
+  background: #ab6eff;
+}

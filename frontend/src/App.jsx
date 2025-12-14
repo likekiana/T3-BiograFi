@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import Welcome from './pages/Welcome.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Editor from './pages/Editor.jsx';
 import DataVisualization from './components/visualization/DataVisualization.jsx';
@@ -108,15 +109,24 @@ function App() {
               } 
             />
             <Route 
+<<<<<<< Updated upstream
               path="/dashboard" 
               element={
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
+=======
+              path="/welcome" 
+              element={
+                <PublicRoute>
+                  <Welcome />
+                </PublicRoute>
+>>>>>>> Stashed changes
               } 
             />
             <Route 
               path="/" 
+<<<<<<< Updated upstream
               element={<Navigate to="/dashboard" />} 
             />
 
@@ -139,6 +149,49 @@ function App() {
               } 
             />
 
+=======
+              element={<Welcome />} 
+            />
+            {/* 受保护路由使用嵌套结构，结合Layout组件 */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                {/* 仪表板路由 */}
+                <Route 
+                  path="/dashboard" 
+                  element={<Dashboard />} 
+                />
+
+                
+                {/* 项目管理路由 */}
+                <Route path="/projects" element={<Dashboard />} />
+                <Route path="/project/:id" element={<Dashboard />} />
+                
+                {/* 编辑器路由 */}
+                <Route 
+                  path="/editor" 
+                  element={<Editor />} 
+                />
+                <Route 
+                  path="/editor/:id" 
+                  element={<Editor />} 
+                />
+                
+                {/* 可视化路由 */}
+                <Route 
+                  path="/visualization" 
+                  element={<DataVisualization />} 
+                />
+                <Route 
+                  path="/project-visualization" 
+                  element={<ProjectVisualization />} 
+                />
+                
+                {/* 用户相关路由 */}
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Route>
+>>>>>>> Stashed changes
             {/* 404 页面 */}
             <Route 
               path="*" 
