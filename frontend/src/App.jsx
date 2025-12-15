@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
+import Welcome from './pages/Welcome.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -97,6 +98,8 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
+            {/* Welcome 起始页面 */}
+            <Route path="/" element={<Welcome />} />
             <Route 
               path="/login" 
               element={
@@ -120,10 +123,6 @@ function App() {
                 <Route 
                   path="/dashboard" 
                   element={<Dashboard />} 
-                />
-                <Route 
-                  path="/" 
-                  element={<Navigate to="/dashboard" />} 
                 />
                 
                 {/* 项目管理路由 */}

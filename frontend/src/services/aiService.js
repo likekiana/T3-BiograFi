@@ -339,40 +339,98 @@ export const aiService = {
         return [];
       }
       
-      // 准备实体信息，用于AI提示词
+      // 准备实体信息，增强上下文信息
       const entitiesInfo = entityAnnotations.map((ann, index) => {
-        return `${index + 1}. [${ann.label || '其他'}] "${ann.text || ''}" (位置: ${ann.start}-${ann.end})`;
+        // 提取实体前后各50字符的上下文，帮助AI理解
+        const contextStart = Math.max(0, ann.start - 50);
+        const contextEnd = Math.min(text.length, ann.end + 50);
+        const context = text.substring(contextStart, contextEnd);
+        return `${index + 1}. [${ann.label || '其他'}] "${ann.text || ''}" (上下文: "${context}...")`;
       }).join('\n');
       
-      // 设计提示词，让AI生成实体间的关系
+      // 优化提示词，针对古代人物传记特点设计
       const prompt = `
-请分析以下文本中的实体之间的关系：
+你现在是一位古代人物传记研究专家，需要分析古代文献中人物实体之间的关系。请严格按照要求进行分析：
 
-文本内容：
-${text.substring(0, 2000)}...
+### 文本信息
+这是一段古代人物传记文本，主要记载了人物的生平事迹、家族关系、社会交往等内容：
 
-已识别的实体：
+${text}
+
+### 已识别的人物实体
 ${entitiesInfo}
 
-请根据文本内容，分析实体之间可能存在的关系，并按照以下格式返回JSON结果：
+### 关系类型示例（古代人物传记常见）
+请重点关注以下类型的关系，但不限于这些。每个关系类型都有具体的古代传记示例：
+
+1. **家族关系**
+   - 父子关系：如“孔子”与“孔鲤”
+   - 母子关系：如“孟子”与“仉氏”
+   - 兄弟关系：如“曹丕”与“曹植”
+   - 祖孙关系：如“司马懿”与“司马炎”
+   - 夫妻关系：如“诸葛亮”与“黄月英”
+   - 叔侄关系：如“曹操”与“夏侯渊”（表兄弟关系）
+   - 远亲关系：如“苏轼”与“苏辙”（兄弟）
+
+2. **社会关系**
+   - 师生关系：如“韩愈”与“李翱”
+   - 朋友关系：如“李白”与“杜甫”
+   - 上下级关系：如“曾国藩”与“李鸿章”
+   - 同袍关系：如“关羽”与“张飞”
+   - 同事关系：如“王安石”与“司马光”（同朝为官）
+   - 知己关系：如“伯牙”与“子期”
+
+3. **身份关系**
+   - 君臣关系：如“唐太宗”与“魏征”
+   - 主仆关系：如“卫青”与“汉武帝”（早期为主仆，后为君臣）
+   - 师徒关系：如“鬼谷子”与“苏秦”
+   - 主客关系：如“孟尝君”与“冯谖”
+   - 从属关系：如“岳飞”与“宋高宗”
+
+4. **活动关系**
+   - 共事关系：如“房玄龄”与“杜如晦”（房谋杜断）
+   - 交往关系：如“柳宗元”与“刘禹锡”（永贞革新伙伴）
+   - 敌对关系：如“刘邦”与“项羽”
+   - 合作关系：如“孙权”与“刘备”（赤壁之战）
+   - 对立关系：如“王安石”与“欧阳修”（变法争论）
+
+5. **称谓关系**
+   - 字号关系：如“李白”与“李太白”（字太白）
+   - 官职称谓：如“杜甫”与“杜工部”（曾任工部员外郎）
+   - 谥号关系：如“范仲淹”与“范文正公”（谥号文正）
+   - 别称关系：如“苏轼”与“苏东坡”（号东坡居士）
+
+6. **其他重要关系**
+   - 同乡关系：如“康有为”与“梁启超”（广东同乡）
+   - 同年关系：如“韩愈”与“柳宗元”（同榜进士）
+   - 世交关系：如“杨家将”与“潘美”（世代交往）
+   - 举荐关系：如“左光斗”与“史可法”
+   - 赏识关系：如“萧何”与“韩信”（萧何月下追韩信）
+
+### 输出格式要求
+请根据文本内容，分析实体之间明确存在的关系，并按照以下JSON格式返回结果：
 
 {
   "relations": [
     {
       "entity1Index": 0,      // 第一个实体在实体列表中的索引（从0开始）
       "entity2Index": 1,      // 第二个实体在实体列表中的索引（从0开始）
-      "relationName": "父子关系"  // 实体之间的关系名称
+      "relationName": "父子关系"  // 实体之间的关系名称，必须简洁准确
     }
   ]
 }
 
-注意事项：
-1. 只返回JSON格式，不要包含其他任何解释或说明
-2. 关系名称要简洁明了，如"父子关系"、"朋友关系"、"上下级关系"等
-3. 只分析文本中明确提到的关系，不要凭空猜测
-4. 每个关系只需要返回一次，不要重复
-5. 确保实体索引在有效范围内
-6. 关系是有方向的，注意实体1和实体2的顺序
+### 重要注意事项
+1. **只返回JSON格式**，不要包含任何解释、说明或其他文本
+2. **严格基于原文**：只分析文本中明确提到的关系，不要进行推理或猜测
+3. **关系名称准确**：使用古代人物传记中常用的关系术语，保持简洁明了
+4. **避免重复**：每个关系只返回一次，不要重复标注
+5. **索引有效**：确保实体索引在有效范围内，且entity1Index≠entity2Index
+6. **注意方向**：关系是有方向的，如“父子关系”中，entity1是父，entity2是子
+7. **人物为主**：重点关注人物实体之间的关系，兼顾与其他实体的关系
+8. **古代语境**：结合古代社会背景理解关系，如“君臣”、“师徒”等特定称谓
+
+请开始分析并输出JSON结果：
 `;
 
 
@@ -399,23 +457,70 @@ ${entitiesInfo}
         return [];
       }
       
-      // 处理结果，确保索引有效
+      // 关系合理性验证函数
+      const validateRelation = (rel) => {
+        // 1. 基本有效性检查
+        if (rel.entity1Index < 0 || 
+            rel.entity1Index >= entityAnnotations.length || 
+            rel.entity2Index < 0 || 
+            rel.entity2Index >= entityAnnotations.length ||
+            rel.entity1Index === rel.entity2Index ||
+            !rel.relationName || !rel.relationName.trim()) {
+          return false;
+        }
+        
+        const entity1 = entityAnnotations[rel.entity1Index];
+        const entity2 = entityAnnotations[rel.entity2Index];
+        
+        // 2. 实体类型合理性检查
+        const personEntityTypes = ['人物', 'PERSON', 'person'];
+        const isEntity1Person = personEntityTypes.includes(entity1.label || '');
+        const isEntity2Person = personEntityTypes.includes(entity2.label || '');
+        
+        // 家族关系、社会关系、身份关系等必须是人物之间的关系
+        const personOnlyRelations = ['父子', '母子', '兄弟', '祖孙', '夫妻', '师生', '朋友', '君臣', '师徒', '主仆'];
+        const relationType = rel.relationName;
+        const needsPersonEntities = personOnlyRelations.some(type => relationType.includes(type));
+        
+        if (needsPersonEntities && (!isEntity1Person || !isEntity2Person)) {
+          console.warn('关系类型需要人物实体:', rel);
+          return false;
+        }
+        
+        // 3. 上下文相关性检查 - 确保关系在文本中有相关提及
+        const context1 = text.substring(
+          Math.max(0, entity1.start - 100), 
+          Math.min(text.length, entity1.end + 100)
+        );
+        const context2 = text.substring(
+          Math.max(0, entity2.start - 100), 
+          Math.min(text.length, entity2.end + 100)
+        );
+        
+        // 检查两个实体的上下文是否有重叠或关联
+        const hasContextOverlap = context1.includes(entity2.text) || context2.includes(entity1.text);
+        const entitiesInSameParagraph = Math.abs(entity1.start - entity2.start) < 500;
+        
+        if (!hasContextOverlap && !entitiesInSameParagraph) {
+          console.warn('实体上下文无关联，可能关系错误:', rel);
+          return false;
+        }
+        
+        return true;
+      };
+      
+      // 处理结果，确保索引有效且关系合理
       const validRelations = relationsResult.relations.filter(rel => {
-        const isValid = rel.entity1Index >= 0 && 
-                       rel.entity1Index < entityAnnotations.length && 
-                       rel.entity2Index >= 0 && 
-                       rel.entity2Index < entityAnnotations.length &&
-                       rel.entity1Index !== rel.entity2Index &&
-                       rel.relationName && rel.relationName.trim();
+        const isValid = validateRelation(rel);
         if (!isValid) {
-          console.warn('无效的关系:', rel);
+          console.warn('无效或不合理的关系:', rel);
         }
         return isValid;
       });
       
       // 去重处理
       const uniqueRelations = this.removeDuplicateRelations(validRelations);
-      console.log(`AI关系标注完成，共生成 ${validRelations.length} 个关系，去重后 ${uniqueRelations.length} 个`);
+      console.log(`AI关系标注完成，共生成 ${relationsResult.relations.length} 个关系，验证后 ${validRelations.length} 个有效，去重后 ${uniqueRelations.length} 个`);
       
       return uniqueRelations;
       
