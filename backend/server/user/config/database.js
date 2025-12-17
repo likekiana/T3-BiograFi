@@ -179,8 +179,16 @@ async function ensureSchema() {
 
         // 4. 为entity_annotations表添加更多索引
         try {
-            await conn.execute(`ALTER TABLE entity_annotations ADD INDEX IF NOT EXISTS idx_document_type (document_id, type)`);
-            await conn.execute(`ALTER TABLE entity_annotations ADD INDEX IF NOT EXISTS idx_label_text (label, text_content(100))`);
+            // 检查索引是否存在，避免重复创建
+            const [entityIndexes] = await conn.execute(`SHOW INDEX FROM entity_annotations`);
+            const entityIndexNames = entityIndexes.map(idx => idx.Key_name);
+            
+            if (!entityIndexNames.includes('idx_document_type')) {
+                await conn.execute(`ALTER TABLE entity_annotations ADD INDEX idx_document_type (document_id, type)`);
+            }
+            if (!entityIndexNames.includes('idx_label_text')) {
+                await conn.execute(`ALTER TABLE entity_annotations ADD INDEX idx_label_text (label, text_content(100))`);
+            }
             console.log('✅ 为entity_annotations表添加额外索引');
         } catch (e) {
             console.warn('⚠️ 为entity_annotations表添加索引失败:', e.message);
@@ -188,9 +196,19 @@ async function ensureSchema() {
 
         // 5. 为relation_annotations表添加更多索引
         try {
-            await conn.execute(`ALTER TABLE relation_annotations ADD INDEX IF NOT EXISTS idx_relation_type (relation_type)`);
-            await conn.execute(`ALTER TABLE relation_annotations ADD INDEX IF NOT EXISTS idx_source_target (source_entity_id, target_entity_id)`);
-            await conn.execute(`ALTER TABLE relation_annotations ADD INDEX IF NOT EXISTS idx_target_source (target_entity_id, source_entity_id)`);
+            // 检查索引是否存在，避免重复创建
+            const [relationIndexes] = await conn.execute(`SHOW INDEX FROM relation_annotations`);
+            const relationIndexNames = relationIndexes.map(idx => idx.Key_name);
+            
+            if (!relationIndexNames.includes('idx_relation_type')) {
+                await conn.execute(`ALTER TABLE relation_annotations ADD INDEX idx_relation_type (relation_type)`);
+            }
+            if (!relationIndexNames.includes('idx_source_target')) {
+                await conn.execute(`ALTER TABLE relation_annotations ADD INDEX idx_source_target (source_entity_id, target_entity_id)`);
+            }
+            if (!relationIndexNames.includes('idx_target_source')) {
+                await conn.execute(`ALTER TABLE relation_annotations ADD INDEX idx_target_source (target_entity_id, source_entity_id)`);
+            }
             console.log('✅ 为relation_annotations表添加额外索引');
         } catch (e) {
             console.warn('⚠️ 为relation_annotations表添加索引失败:', e.message);
@@ -248,7 +266,7 @@ async function ensureSchema() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 document_id VARCHAR(64) NOT NULL UNIQUE,
                 total_chars INT NOT NULL DEFAULT 0,
-                label_counts JSON NOT NULL DEFAULT '{}',
+                label_counts JSON NOT NULL,
                 entity_density DECIMAL(5,2) DEFAULT 0.00,
                 last_calculated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -265,9 +283,9 @@ async function ensureSchema() {
             await conn.execute(`CREATE TABLE IF NOT EXISTS export_records (
                 id VARCHAR(50) PRIMARY KEY,
                 user_id INT NOT NULL,
-                document_ids JSON NOT NULL DEFAULT '[]',
+                document_ids JSON NOT NULL,
                 export_format VARCHAR(20) DEFAULT 'txt+csv',
-                file_paths JSON NOT NULL DEFAULT '[]',
+                file_paths JSON NOT NULL,
                 status ENUM('processing', 'completed', 'failed') DEFAULT 'processing',
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -286,9 +304,9 @@ async function ensureSchema() {
             await conn.execute(`CREATE TABLE IF NOT EXISTS user_settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL UNIQUE,
-                default_labels JSON DEFAULT '[]',
-                visualization_config JSON DEFAULT '{}',
-                export_preferences JSON DEFAULT '{}',
+                default_labels JSON NULL,
+                visualization_config JSON NULL,
+                export_preferences JSON NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
