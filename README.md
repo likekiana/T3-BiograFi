@@ -13,7 +13,8 @@
 │       ├── seg/          # 分词服务模块
 │       └── user/         # 用户服务模块
 ├── frontend/             # 前端代码
-└── README.md             # 项目说明文档
+├── README.md             # 项目说明文档
+└── GitHub-CODE-STYLE.md  # GitHub代码管理方法
 ```
 
 ## 环境要求
@@ -23,41 +24,66 @@
 
 ## 启动说明
 
-### 后端服务启动
+### 1. 安装依赖
 
-1. **打开PowerShell**
-2. **进入前端目录**
-   ```powershell
-   cd frontend
-   ```
-3. **安装依赖**
-   ```powershell
-   npm i -D concurrently
-   ```
-4. **设置环境变量并启动服务**
-   ```powershell
-   # 设置数据库环境变量
-   $env:DB_USER="root"
-   $env:DB_PASSWORD="3147"
-   $env:DB_NAME="ianct_chinese_user"
-   
-   # 设置AI模型环境变量（百度千帆ERNIE X1）
-   $env:API_KEY="bce-v3/ALTAK-GlzTH3GEwkwIGzCsLtoeG/692dd1e4a3efc131b1b06ef241e668306e6782c9"
-   
-   # 启动所有服务
-   npm run start:services
-   ```
+#### 前端依赖
+```powershell
+cd frontend
+npm install
+npm install -D concurrently
+```
 
-### 前端服务启动
+#### 后端AI服务依赖
+```powershell
+cd backend/server/AI
+pip install -r requirements.txt
+```
 
-1. **进入前端目录**
-   ```powershell
-   cd frontend
-   ```
-2. **启动前端服务**
-   ```powershell
-   npm start
-   ```
+### 2. 设置环境变量
+
+```powershell
+# 设置数据库环境变量
+$env:DB_USER="root"
+$env:DB_PASSWORD="3147"
+$env:DB_NAME="ianct_chinese_user"
+
+# 设置AI模型环境变量（百度千帆ERNIE X1）
+$env:API_KEY="bce-v3/ALTAK-GlzTH3GEwkwIGzCsLtoeG/692dd1e4a3efc131b1b06ef241e668306e6782c9"
+```
+
+### 3. 启动所有服务
+
+#### 方式一：同时启动所有服务（推荐）
+```powershell
+cd frontend
+npm run start:services
+```
+
+#### 方式二：分别启动服务
+
+**启动用户服务**：
+```powershell
+cd backend/server/user
+node user-server.js
+```
+
+**启动AI服务**：
+```powershell
+cd backend/server/AI
+python ai.py
+```
+
+**启动分词服务**：
+```powershell
+cd backend/server/seg
+python seg_server.py
+```
+
+**启动前端服务**：
+```powershell
+cd frontend
+npm start
+```
 
 ## AI模型说明
 
@@ -84,11 +110,11 @@ AI服务配置文件位于 `backend/server/AI/config.py`，主要配置项：
 - `TIMEOUT`：请求超时时间
 
 ### 环境变量
-- `DEEPSEEK_API_KEY`：DeepSeek API密钥（必填）
-- `MODELSCOPE_API_KEY`：魔搭平台API密钥（必填）
 - `DB_USER`：数据库用户名（必填）
 - `DB_PASSWORD`：数据库密码（必填）
 - `DB_NAME`：数据库名称（必填）
+
+**注意**：AI服务配置目前直接在 `config.py` 文件中设置，无需通过环境变量配置。
 
 ## 服务端口
 - 用户服务：5002
@@ -97,7 +123,7 @@ AI服务配置文件位于 `backend/server/AI/config.py`，主要配置项：
 - 前端服务：3000
 
 ## 技术栈
-- **前端**：React 18 + Vite + Tailwind CSS
+- **前端**：React 19 + Vite + Tailwind CSS
 - **后端**：Node.js + Express + Python Flask
 - **数据库**：MySQL
 - **AI模型**：百度千帆ERNIE X1
@@ -110,6 +136,8 @@ AI服务配置文件位于 `backend/server/AI/config.py`，主要配置项：
 4. 自动实体标注
 5. 关系标注
 6. 数据可视化
+7. 古典分析
+8. 时空可视化
 
 ## 开发说明
 
@@ -120,11 +148,14 @@ AI服务使用Python Flask框架，位于 `backend/server/AI/` 目录下：
 - `requirements.txt`：依赖列表
 
 ### 前端开发
-前端使用React 18 + Vite，主要开发目录：
+前端使用React 19 + Vite，主要开发目录：
 - `src/components/`：组件目录
 - `src/services/`：服务封装
 - `src/pages/`：页面组件
 - `src/utils/`：工具函数
+
+## GitHub代码管理
+本项目使用专门的GitHub代码管理方法，详细内容请查看 [GitHub-CODE-STYLE.md](./GitHub-CODE-STYLE.md) 文件。
 
 ## 注意事项
 1. 确保数据库已正确创建
@@ -147,5 +178,9 @@ AI服务使用Python Flask框架，位于 `backend/server/AI/` 目录下：
 
 ## 版本说明
 - 当前版本：1.0.0
-- 更新日期：2025-12-06
-- 主要更新：切换到百度千帆ERNIE X1 AI模型
+- 更新日期：2025-12-15
+- 主要更新：
+  - 集成百度千帆ERNIE X1 AI模型
+  - 添加数据可视化功能
+  - 优化项目结构和启动流程
+  - 添加GitHub代码管理规范

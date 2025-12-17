@@ -3,7 +3,7 @@
 
 const USER_API_BASE = import.meta.env.VITE_USER_API_BASE || 'http://localhost:5002';
 const AI_API_BASE = import.meta.env.VITE_AI_API_BASE || 'http://localhost:5004';
-const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || 'http://localhost:5003';
+const SEG_API_BASE = import.meta.env.VITE_SEG_API_BASE || 'http://localhost:5001';
 
 /**
  * 通用 API 请求函数
