@@ -7,7 +7,7 @@ import { t } from '../../utils/language';
 import '../../styles/components/ProjectList.css';
 
 const ProjectList = ({ onOpenProject }) => {
-  const { projects, loading, error, createProject, searchProjects } = useProjects();
+  const { projects, loading, error, createProject, updateProject, deleteProject, searchProjects } = useProjects();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [filteredProjects, setFilteredProjects] = useState([]);
@@ -121,6 +121,8 @@ const ProjectList = ({ onOpenProject }) => {
               key={project.id}
               project={project}
               onOpen={onOpenProject}
+              updateProject={updateProject}
+              deleteProject={deleteProject}
             />
           ))
         )}

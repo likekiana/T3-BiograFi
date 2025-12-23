@@ -1,12 +1,10 @@
 // src/components/projects/ProjectCard.js
 import React, { useState } from 'react';
-import { useProjects } from '../../hooks/useProjects';
 import { t } from '../../utils/language';
 import Modal from '../common/Modal';
 import '../../styles/components/ProjectCard.css';
 
-const ProjectCard = ({ project, onOpen }) => {
-  const { updateProject, deleteProject } = useProjects();
+const ProjectCard = ({ project, onOpen, updateProject, deleteProject }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [editData, setEditData] = useState({
     name: project.name,
