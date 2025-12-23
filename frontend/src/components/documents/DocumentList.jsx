@@ -172,13 +172,7 @@ const DocumentList = ({ project, onOpenDocument, onBack }) => {
             </>
           ) : (
             <>
-              <button 
-                className="action-btn"
-                onClick={() => setExportMode(true)}
-              >
-                <i data-feather="download"></i> {t('export_documents')}
-              </button>
-
+            
               {/* 项目可视化按钮 */}
               <button 
                 className="action-btn primary-btn"

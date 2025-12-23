@@ -27,6 +27,8 @@ export default function Settings() {
       if (updateUser) {
         await updateUser({ settings: result.user.settings || settings });
       }
+      // 显示保存成功的toast通知
+      window.showToast('保存设置成功！', 'success');
       return result;
     } else {
       alert('保存失败: ' + (result && result.error ? result.error : '未知错误'));
