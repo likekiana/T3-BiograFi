@@ -209,7 +209,7 @@ ${content.substring(0, 3000)}  // 限制长度避免过长
    * 使用高德地图API将地名转换为坐标
    */
   async geocodePlaces(places) {
-    const API_KEY = '0af744d9c966d1790972694dfa5509d6';
+    const API_KEY = '1c272930b6dadee07ace698fc6a25aa8';
     const coordinates = {};
     
     // 如果地点为空，直接返回空对象

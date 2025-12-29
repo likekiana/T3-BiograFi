@@ -1,6 +1,6 @@
 // 共享的地图配置
 export const AMAP_CONFIG = {
-  key: '0af744d9c966d1790972694dfa5509d6',
+  key: '1c272930b6dadee07ace698fc6a25aa8',
   version: '2.0',
   plugins: 'AMap.ControlBar,AMap.ToolBar,AMap.Buildings,AMap.HeatMap'
 };
